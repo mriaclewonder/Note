@@ -427,3 +427,57 @@ void CTitleBar::mousePressEvent(QMouseEvent* event)
 	event->ignore();
 }
 ```
+
+
+
+## 框架
+
+### VLC media player
+
+vlc是一款自由，开源的跨平台多媒体播放器及框架，可播放大多数多媒体文件，以及DVD,音频CD，VCD及各类流媒体协议
+
+### VLC框架配置
+
+>**右击项目属性->C/C++->常规->附加包含目录->.\vlc-3.0.8\sdk\include,  .\vlc-3.0.8\sdk\lib**
+
+![image-20250202224531143](Qt.assets/image-20250202224531143.png)
+
+> **右击项目属性->链接器->常规->附加库目录->.\vlc-3.0.8\sdk\lib**
+
+![image-20250202224809095](Qt.assets/image-20250202224809095.png)
+
+> **右击项目属性->链接器->输入->附加依赖项->libvlc.lib,libvlccore.lib**
+
+![image-20250202225022351](Qt.assets/image-20250202225022351.png)
+
+### 报错
+
+#### libvlc_media_read_cb为生命的标识符
+
+<img src="Qt.assets/image-20250202230053125.png" alt="image-20250202230053125" style="zoom: 80%;" />
+
+```c++
+// 头文件加入
+#ifdef _WIN32
+#include <basetsd.h>
+typedef SSIZE_T ssize_t;
+#endif
+
+#include "vlc/vlc.h"
+```
+
+#### 模块对于SAFSEH映像是不安全的
+
+![image-20250202231732225](Qt.assets/image-20250202231732225.png)
+
+#### 找不到libvlc.dll
+
+![image-20250202230453093](Qt.assets/image-20250202230453093.png)
+
+![image-20250202230855564](Qt.assets/image-20250202230855564.png)
+
+#### 实例化错误
+
+![image-20250202231440548](Qt.assets/image-20250202231440548.png)
+
+![image-20250202231544709](Qt.assets/image-20250202231544709.png)
