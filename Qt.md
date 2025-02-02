@@ -481,3 +481,11 @@ typedef SSIZE_T ssize_t;
 ![image-20250202231440548](Qt.assets/image-20250202231440548.png)
 
 ![image-20250202231544709](Qt.assets/image-20250202231544709.png)
+
+
+
+
+
+
+
+![image-20250203000218071](Qt.assets/image-20250203000218071.png)
