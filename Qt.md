@@ -1,7 +1,3 @@
-## 即时知识点
-
-![image-20250204135944128](qt.assets/image-20250204135944128.png)
-
 ## 面试
 
 ### connect信号槽简介
@@ -213,6 +209,79 @@ QPushButton *button_tmp = qobject_cast<QPushButton *>(obj);  //向下转型为�
       //textEdit
   }
 ```
+
+### static_cast
+
+`static_cast` 是 C++ 中的一种类型转换操作符，它用于在具有明确转换关系的类型之间进行转换。与 C 语言中的类型转换（如 `(type)value`）相比，`static_cast` 提供了更好的类型安全性，并且能够在编译时检查转换的有效性。
+
+#### 使用场景
+
+`static_cast` 可以用于以下几种情况：
+
+1. **基础数据类型之间的转换**：例如，将 `int` 转换为 `float`，或者将 `double` 转换为 `int`（注意，这种转换可能会导致数据丢失或精度下降）。
+2. **派生类与基类之间的转换**（在明确知道对象实际类型的情况下）：可以将指向派生类对象的指针或引用转换为指向基类对象的指针或引用，反之亦然（但这通常不是好的做法，因为向下转换（从基类到派生类）在运行时是不安全的，除非使用了 `dynamic_cast` 并进行了类型检查）。
+3. **void* 与其他类型指针之间的转换**：可以将 `void*` 转换为具体类型的指针，或者将具体类型的指针转换为 `void*`。
+4. **有转换构造函数或转换操作符的类之间的转换**：如果类 A 有一个接受类 B 类型参数的构造函数，或者类 B 有一个返回类 A 类型值的转换操作符，那么可以使用 `static_cast` 在 A 和 B 之间进行转换。
+
+#### 语法
+
+```cpp
+static_cast<type>(expression);
+```
+
+- `type`：目标类型。
+- `expression`：要转换的表达式。
+
+#### 示例
+
+```cpp
+#include <iostream>
+ 
+class Base {
+public:
+    virtual ~Base() {} // 为了多态性，基类通常需要一个虚析构函数
+};
+ 
+class Derived : public Base {
+public:
+    void sayHello() {
+        std::cout << "Hello from Derived!" << std::endl;
+    }
+};
+ 
+int main() {
+    Base* basePtr = new Derived(); // 基类指针指向派生类对象
+ 
+    // 使用 static_cast 将基类指针转换为派生类指针（这里假设我们知道实际对象是 Derived 类型的）
+    Derived* derivedPtr = static_cast<Derived*>(basePtr);
+ 
+    derivedPtr->sayHello(); // 调用派生类的成员函数
+ 
+    delete basePtr; // 注意：应该通过基类指针删除对象，但这里我们已知实际类型是 Derived
+ 
+    return 0;
+}
+```
+
+**警告**：在上面的示例中，虽然 `static_cast` 被用于将基类指针转换为派生类指针，但这种转换在运行时是不安全的。如果 `basePtr` 实际上并没有指向一个 `Derived` 对象，那么转换后的 `derivedPtr` 将指向一个无效的对象，这可能导致未定义行为。在实际编程中，通常应该使用 `dynamic_cast` 并检查转换是否成功来进行这种转换。
+
+对于基础数据类型之间的转换，`static_cast` 是安全的，因为它只是改变了数据的解释方式，而不会改变数据本身（尽管可能会导致数据丢失或精度下降）。
+
+### childAt()
+
+在Qt框架中，QWidget类提供了`childAt`方法，该方法用于获取指定位置的子控件（子视图）。
+
+- **功能**：通过传入一个坐标点（通常是相对于父控件的坐标），`childAt`方法会返回位于该坐标点处的子控件指针。
+- **返回值**：如果指定位置存在子控件，则返回该子控件的指针；如果不存在，则返回nullptr。
+- **应用场景**：该方法常用于动态操作容器中的子控件，例如获取特定位置的子控件进行操作，或者判断子控件是否存在。
+
+### geometry()
+
+`QWidget` 类及其子类（如 `QPushButton`, `QLabel` 等）提供了 `geometry()` 成员函数，用于获取控件的几何形状。
+
+- **功能**：返回控件的矩形区域，该区域以屏幕坐标表示控件的位置和大小。
+- **返回值**：一个 `QRect` 对象，包含了控件的 x 和 y 坐标（位置）以及宽度和高度（大小）。
+- **应用场景**：常用于获取控件的当前位置和大小，以便进行布局调整或动画效果等。
 
 ## 注意事项
 
@@ -427,6 +496,80 @@ void CTitleBar::mousePressEvent(QMouseEvent* event)
 	event->ignore();
 }
 ```
+
+### 重写nativeEvent()实现窗口拖拽
+
+这段代码是一个Qt框架中自定义无边框窗口（frameless window）的一部分，特别是处理Windows消息（通过`nativeEvent`函数）以实现自定义的边框和标题栏行为。下面是对这段代码的详细注释：
+
+```cpp
+// CFrameLessWidgetBase类的nativeEvent成员函数，用于处理Windows原生事件
+bool CFrameLessWidgetBase::nativeEvent(const QByteArray& eventType, void* message, long* result)
+{
+    // 将传入的message参数转换为MSG*类型，MSG是Windows API中用于接收消息的结构体
+    MSG* param = static_cast<MSG*>(message);
+ 
+    // 根据消息类型进行分支处理
+    switch (param->message)
+    {
+    case WM_NCHITTEST: // 处理WM_NCHITTEST消息，该消息用于确定鼠标在非客户区（边框、标题栏等）的哪个位置
+    {
+        // 计算鼠标点击位置相对于窗口左上角的坐标
+        int nX = GET_X_LPARAM(param->lParam) - this->geometry().x();
+        int nY = GET_Y_LPARAM(param->lParam) - this->geometry().y();
+ 
+        /*
+        // 注释掉的代码：如果鼠标点击位置有子控件，则直接调用QWidget的nativeEvent处理
+        // 这通常用于确保子控件（如按钮、文本框等）能够正常接收事件
+        if (childAt(nX, nY) != nullptr)
+            return QWidget::nativeEvent(eventType, message, result);
+        */
+ 
+        // 检查鼠标点击位置是否在窗口内容区域（排除边框宽度）
+        if (nX > m_nBorderWidth && nX < this->width() - m_nBorderWidth &&
+            nY > m_nBorderWidth && nY < this->height() - m_nBorderWidth)
+        {
+            // 如果在内容区域且该位置有子控件，则让QWidget处理该事件
+            if (childAt(nX, nY) != nullptr)
+                return QWidget::nativeEvent(eventType, message, result);
+        }
+ 
+        // 根据鼠标点击位置设置*result的值，以改变窗口的拖动行为
+        // 这些值（如HTLEFT, HTRIGHT等）是Windows API中定义的，用于指示鼠标在非客户区的哪个位置
+        if ((nX > 0) && (nX < m_nBorderWidth))
+            *result = HTLEFT; // 左侧边框
+ 
+        if ((nX > this->width() - m_nBorderWidth) && (nX < this->width()))
+            *result = HTRIGHT; // 右侧边框
+ 
+        if ((nY > 0) && (nY < m_nBorderWidth))
+            *result = HTTOP; // 顶部边框
+ 
+        if ((nY > this->height() - m_nBorderWidth) && (nY < this->height()))
+            *result = HTBOTTOM; // 底部边框
+ 
+        if ((nX > 0) && (nX < m_nBorderWidth) && (nY > 0) && (nY < m_nBorderWidth))
+            *result = HTTOPLEFT; // 左上角
+ 
+        if ((nX > this->width() - m_nBorderWidth) && (nX < this->width()) && (nY > 0) && (nY < m_nBorderWidth))
+            *result = HTTOPRIGHT; // 右上角
+ 
+        if ((nX > 0) && (nX < m_nBorderWidth) && (nY > this->height() - m_nBorderWidth) && (nY < this->height()))
+            *result = HTBOTTOMLEFT; // 左下角
+ 
+        if ((nX > this->width() - m_nBorderWidth) && (nX < this->width()) && (nY > this->height() - m_nBorderWidth) && (nY < this->height()))
+            *result = HTBOTTOMRIGHT; // 右下角
+ 
+        // 表明事件已被处理
+        return true;
+    }
+    }
+ 
+    // 如果不是WM_NCHITTEST消息，则不处理
+    return false;
+}
+```
+
+这段代码的主要目的是通过处理`WM_NCHITTEST`消息来自定义无边框窗口的拖动行为。通过检查鼠标点击的位置，并设置相应的返回值，可以改变窗口的拖动区域，从而实现自定义的边框和标题栏效果。
 
 
 

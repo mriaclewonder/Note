@@ -67,6 +67,172 @@ enum
 } day;
 ```
 
+
+
+###  inline函数
+
+#### **`inline` 函数的作用**
+
+- **最初目的**：向编译器建议将函数代码直接插入调用处（避免函数调用的开销），以提高效率（例如短小的工具函数）。
+- **现代编译器**：会自主决定是否内联（如循环、递归通常不会内联），`inline` 关键字不再强制要求编译器内联，**更多用于满足编程规范**。
+
+####  **关键用途：ODR（单一定义规则）**
+
+- **头文件中的函数定义**：若在头文件中直接定义函数（非声明），多个源文件包含该头文件时，会导致**重复定义错误**。
+- **使用 `inline`**：在头文件的函数定义前加 `inline`，告知编译器“允许重复定义，但需保证所有定义相同”，从而解决 ODR 问题。
+
+####  **注意事项**
+
+- **编译器决定权**：`inline` 只是建议，编译器可能忽略（如复杂函数）。
+- **ODR 一致性**：所有源文件中的 `inline` 函数定义必须**完全相同**，否则引发未定义行为。
+- **过度内联**：可能导致代码膨胀，降低缓存利用率，反而影响性能。
+
+#### 总结：何时使用 `inline`？
+
+1. **头文件中定义函数** → 必须用 `inline`（解决 ODR）。
+2. **短小频繁调用的函数** → 可尝试用 `inline`（但编译器可能自行优化）。
+3. **避免滥用** → 性能关键处由性能分析工具指导。
+
+### **explicit **
+
+#### **`explicit` 的作用**
+`explicit` 用于修饰类的 **构造函数** 或 **类型转换运算符**（C++11 起），禁止编译器进行隐式的类型转换，要求代码中必须显式调用。
+
+---
+
+##### **1. 用于构造函数**
+###### **问题背景：隐式转换的风险**
+如果一个类的构造函数只有一个参数（或多个参数但具有默认值），编译器可能自动进行隐式转换，导致意外的行为。
+
+**示例：未使用 `explicit`**
+```cpp
+class MyString {
+public:
+    MyString(const char* str) {  // 允许隐式转换：const char* → MyString
+        // 构造逻辑...
+    }
+};
+
+void printString(const MyString& s) {
+    // 打印字符串...
+}
+
+int main() {
+    printString("Hello");  // 隐式转换：const char* → MyString
+    return 0;
+}
+```
+这里 `printString("Hello")` 会隐式调用 `MyString` 的构造函数，但可能并非程序员本意。
+
+---
+
+###### **使用 `explicit` 禁止隐式转换**
+```cpp
+class MyString {
+public:
+    explicit MyString(const char* str) {  // 必须显式构造
+        // 构造逻辑...
+    }
+};
+
+void printString(const MyString& s) {
+    // 打印字符串...
+}
+
+int main() {
+    // printString("Hello");          // 错误：无法隐式转换
+    printString(MyString("Hello"));  // 正确：显式构造
+    return 0;
+}
+```
+
+---
+
+#### **2. 用于转换运算符（C++11 起）**
+防止类型转换运算符被隐式调用。
+
+**示例：未使用 `explicit`**
+```cpp
+class BooleanWrapper {
+public:
+    operator bool() const {  // 隐式转换为 bool
+        return true;
+    }
+};
+
+int main() {
+    BooleanWrapper bw;
+    if (bw) {         // 合法：隐式转换为 bool
+        // ...
+    }
+    int x = bw;       // 可能意外的行为：隐式转换为 bool，再转为 int
+    return 0;
+}
+```
+
+**使用 `explicit` 禁止隐式转换：**
+```cpp
+class BooleanWrapper {
+public:
+    explicit operator bool() const {  // 必须显式转换
+        return true;
+    }
+};
+
+int main() {
+    BooleanWrapper bw;
+    if (bw) {               // 错误：无法隐式转换
+    if (static_cast<bool>(bw)) {  // 正确：显式转换
+        // ...
+    }
+    // int x = bw;          // 错误：无法隐式转换
+    return 0;
+}
+```
+
+---
+
+#### **3. 使用场景**
+- **明确语义**：避免构造函数或类型转换的隐式行为导致歧义。
+  ```cpp
+  class Timer {
+  public:
+      explicit Timer(int seconds) {}  // 明确要求显式的时间单位
+  };
+  
+  Timer t1(5);     // 正确：显式构造
+  // Timer t2 = 5; // 错误：必须显式调用
+  ```
+- **防止意外重载解析**：
+  ```cpp
+  void process(int x);
+  void process(const MyString& s);
+  
+  process(10);     // 调用 process(int)
+  // process("Hi"); // 若未用 explicit，可能隐式调用 MyString 构造函数，再调用 process(const MyString&)
+  ```
+
+---
+
+#### **4. 注意事项**
+- **多参数构造函数**：C++11 起，即使构造函数有多个参数，也可用 `explicit`。
+  ```cpp
+  class Vec3 {
+  public:
+      explicit Vec3(int x, int y, int z) {}
+  };
+  
+  Vec3 v = {1, 2, 3};  // 错误：无法隐式转换（需显式构造）
+  ```
+- **拷贝构造函数**：极少需要 `explicit`，通常拷贝操作是安全的。
+- **STL 中的例子**：`std::vector` 的构造函数 `explicit vector(size_type count)`，避免 `vector<int> v = 10;` 这种歧义代码。
+
+---
+
+#### **总结**
+- **用 `explicit`**：当隐式转换可能导致歧义或安全隐患时。
+- **不用 `explicit`**：当隐式转换是合理且符合设计意图时（如 `std::string` 允许从 `const char*` 隐式构造）。
+
 ## Qt
 
 ### connect信号槽简介
