@@ -150,7 +150,36 @@ this->setAttribute(Qt::WA_DeleteOnClose); // 如果没有设置这个属性 那�
 >
 >举个例子，如果你在自定义的 `QWidget` 或 `QPushButton` 上使用 `setAttribute(Qt::WA_Hover)`，那么你可以在控件上悬停时触发特定的响应，例如改变背景色或显示工具提示。
 
+### Qt::WA_OpaquePaintEvent
 
+`WA_OpaquePaintEvent` 是 Qt 中的一个标志，它用于优化小部件的绘制。当这个标志被设置时，Qt 会假设小部件的背景已经完全不透明，因此不需要清除背景再进行绘制，这可以提高渲染性能。
+
+### qApp
+
+`qApp` 是 Qt 中一个非常有用的宏，它返回一个指向当前应用程序的 `QApplication` 或 `QGuiApplication` 实例的指针。这个宏通常用于访问全局应用程序实例，以便执行全局操作或访问应用程序的相关信息。
+
+例如，你可以使用 `qApp` 来访问应用程序的主窗口或改变应用程序的设置：
+
+```cpp
+#include <QApplication>
+#include <QMainWindow>
+
+int main(int argc, char *argv[]) {
+    QApplication app(argc, argv);
+
+    QMainWindow mainWindow;
+    mainWindow.show();
+
+    // 使用 qApp 来访问应用程序实例
+    qApp->setStyle("Fusion");
+
+    return app.exec();
+}
+```
+
+在这个示例中，`qApp->setStyle("Fusion")` 设置了应用程序的样式为 "Fusion"。
+
+注意：`qApp` 只能在有 `QApplication` 或 `QGuiApplication` 实例化之后使用，通常在 `main` 函数中创建应用程序实例时使用。
 
 ## 函数
 
@@ -282,6 +311,162 @@ int main() {
 - **功能**：返回控件的矩形区域，该区域以屏幕坐标表示控件的位置和大小。
 - **返回值**：一个 `QRect` 对象，包含了控件的 x 和 y 坐标（位置）以及宽度和高度（大小）。
 - **应用场景**：常用于获取控件的当前位置和大小，以便进行布局调整或动画效果等。
+
+### setMouseTracking()
+
+`setMouseTracking` 是 Qt 中 `QWidget` 类的一个方法，用于启用或禁用鼠标追踪功能。当启用鼠标追踪时，鼠标移动事件（如 `mouseMoveEvent`）会在鼠标光标移动到小部件上时触发，即使没有按下鼠标按钮。
+
+#### 语法：
+
+```cpp
+void setMouseTracking(bool enable);
+```
+
+- `enable` 参数为 `true` 时，启用鼠标追踪；为 `false` 时，禁用鼠标追踪。
+
+#### 默认行为：
+
+默认情况下，只有在按下鼠标按钮时，才会触发 `mouseMoveEvent`。如果你希望在没有按下鼠标按钮时也能捕获鼠标移动事件，就需要启用鼠标追踪。
+
+#### 使用示例：
+
+```cpp
+#include <QWidget>
+#include <QMouseEvent>
+#include <QDebug>
+
+class MyWidget : public QWidget {
+public:
+    MyWidget() {
+        // 启用鼠标追踪
+        setMouseTracking(true);
+    }
+
+protected:
+    void mouseMoveEvent(QMouseEvent *event) override {
+        // 捕获鼠标移动事件
+        qDebug() << "Mouse moved to:" << event->pos();
+    }
+};
+
+int main(int argc, char *argv[]) {
+    QApplication app(argc, argv);
+    MyWidget widget;
+    widget.show();
+    return app.exec();
+}
+```
+
+#### 解释：
+
+- 在 `MyWidget` 类的构造函数中，我们调用了 `setMouseTracking(true)` 来启用鼠标追踪。
+- `mouseMoveEvent` 会在鼠标光标在小部件内移动时触发，即使没有按下鼠标按钮，都会输出鼠标当前位置。
+
+#### 注意：
+
+- 启用鼠标追踪后，`mouseMoveEvent` 会频繁触发，特别是鼠标在小部件上快速移动时，可能会导致性能问题。因此，建议只在需要的情况下启用鼠标追踪。
+- 如果只需要在鼠标按下时跟踪鼠标移动，保持默认行为即可，无需调用 `setMouseTracking`。
+
+### this->pos()
+
+`this->pos()`：`pos()` 是 `QWidget` 类中的一个方法，返回小部件相对于其父小部件的坐标位置，返回一个 `QPoint` 对象。
+
+### mapToGlobal()
+
+`mapToGlobal` 是 `QWidget` 类中的一个方法，用于将一个小部件内部的坐标转换为全局坐标（即相对于屏幕的坐标）。
+
+### eventFilter()
+
+`eventFilter` 是 `QObject` 类的一个虚函数，用于捕获和处理事件。它允许你拦截和处理特定对象（`watched`）上的事件（`event`），即使这个事件并没有直接被目标对象的事件处理函数处理。
+
+在 Qt 中，`eventFilter` 主要用于以下几个场景：
+
+1. **拦截事件**：你可以用 `eventFilter` 来拦截特定对象的事件，处理或修改事件，然后决定是否将事件传递给该对象的默认事件处理函数。
+2. **自定义事件处理**：在某些情况下，你希望通过中间层对某些事件（例如鼠标事件、键盘事件等）进行更细粒度的控制，而不直接修改原始对象的代码。
+
+#### 语法
+
+```cpp
+bool eventFilter(QObject *watched, QEvent *event) override;
+```
+
+- **watched**：触发事件的对象（即你注册了事件过滤器的对象）。
+- **event**：传递给 `watched` 对象的事件。
+
+如果 `eventFilter` 返回 `true`，表示事件已经被处理，事件不会继续传播给 `watched` 对象的默认事件处理函数。如果返回 `false`，则事件继续传播。
+
+#### 示例
+
+假设你有一个 `QPushButton`，并想在按钮点击时拦截并处理事件：
+
+```cpp
+#include <QApplication>
+#include <QPushButton>
+#include <QEvent>
+#include <QDebug>
+
+class MyWidget : public QWidget
+{
+    Q_OBJECT
+
+public:
+    MyWidget(QWidget *parent = nullptr) : QWidget(parent)
+    {
+        QPushButton *button = new QPushButton("Click me", this);
+        button->setGeometry(50, 50, 100, 30);
+
+        // 安装事件过滤器
+        button->installEventFilter(this);
+    }
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        if (watched->isWidgetType()) {
+            // 判断是否是按钮事件
+            if (event->type() == QEvent::MouseButtonPress) {
+                qDebug() << "Button pressed!";
+                // 处理事件
+                return true;  // 阻止事件继续传播
+            }
+        }
+
+        // 如果没有处理，调用父类的 eventFilter
+        return QWidget::eventFilter(watched, event);
+    }
+};
+
+int main(int argc, char *argv[])
+{
+    QApplication a(argc, argv);
+    MyWidget w;
+    w.show();
+    return a.exec();
+}
+```
+
+#### 解释
+
+- `eventFilter` 被重载，用于捕获所有安装过滤器的事件（例如按钮点击）。
+- 如果按钮的 `MouseButtonPress` 事件被触发，`eventFilter` 会处理这个事件，并返回 `true`，表示事件已经被处理，不会继续传递给按钮。
+- 如果事件没有被处理，调用父类 `QWidget::eventFilter(watched, event)` 让事件继续传播。
+
+#### 其他常见事件类型
+
+- **QEvent::MouseButtonPress**、**QEvent::MouseButtonRelease**：鼠标按下或松开事件。
+- **QEvent::KeyPress**、**QEvent::KeyRelease**：键盘按下或松开事件。
+- **QEvent::FocusIn**、**QEvent::FocusOut**：获得或失去焦点事件。
+- **QEvent::Resize**：窗口大小调整事件。
+
+#### 使用场景
+
+- **全局事件过滤器**：通过在应用程序或窗口级别安装事件过滤器，你可以捕获所有的事件，例如键盘事件、鼠标事件、窗口事件等。
+- **定制行为**：例如拦截控件的鼠标点击、键盘输入，或自定义控件的特定行为。
+- **调试工具**：你可以用事件过滤器来查看或调试某些事件流。
+
+#### 总结
+
+`eventFilter` 是 Qt 提供的强大事件机制，可以帮助你拦截、修改或取消事件的传播。它适用于需要在不修改原始控件或对象代码的情况下，自定义事件处理行为的场景。
 
 ## 注意事项
 
@@ -417,6 +602,50 @@ private:
 
 ```
 
+### c++ 错误提示：不能使用抽象类对象
+
+```c++
+/*
+当前类继承了 一个抽象类
+    1.派生类 要实现 抽象类 的所有纯虚函数
+    2.QAbstractNativeEventFilter的纯虚函数： 
+    virtual bool nativeEventFilter(const QByteArray& eventType, void* message, long* result)  = 0;
+*/
+class VideoWidget : public QWidget, public QAbstractNativeEventFilter
+{
+    Q_OBJECT
+
+public:
+    VideoWidget(QWidget* p = NULL);
+    ~VideoWidget();
+
+    void showTopWidget(bool show);
+    void setPlayStatus(bool play);
+
+protected:
+    //  bool nativeEventFilter(const QByteArray& eventType, void* message, long* result) override;
+    // 如果是上面的函数原型 加上 override nativeEventFilter会报错 ，不加override不会报错，但是 编译器会识别不出来你实现了nativeEventFilter
+    bool nativeEventFilter(const QByteArray& eventType, void* message, qintptr* result) override;
+    void resizeEvent(QResizeEvent* event) override;
+}
+
+cpp:
+// 必须要实现 nativeEventFilter
+    bool nativeEventFilter(const QByteArray& eventType, void* message, qintptr* result
+{
+    Q_UNUSED(eventType);
+	Q_UNUSED(message);
+	Q_UNUSED(result);
+    return false;
+}
+                           
+main.cpp 
+              // 完成上述操作 VideoWidget实例化 不会报错
+              VideoWidget *m_pVideoWidget = nullptr;
+```
+
+
+
 ## Tool问题
 
 ### svg文件不显示问题
@@ -469,31 +698,47 @@ private:
 
 ## 实现功能
 
-### 无边框窗口移动 重写  mousePressEvent()
+### 实现无边框窗口移动
 
 ```c++
-void CTitleBar::mousePressEvent(QMouseEvent* event)
+void MainWidget::mousePressEvent(QMouseEvent* event)
 {
-	// 如果捕获成功，允许窗口移动
-	if (ReleaseCapture())  // 释放当前的鼠标捕获（允许鼠标事件继续传递给父窗口）
-	{
-		// 获取当前窗口对象
-		QWidget* pWindow = this->window();
+    if (event->button() == Qt::LeftButton)
+    {
+        m_dragPosition = event->globalPosition().toPoint() - this->frameGeometry().topLeft();
+        m_dragging = true;
+        event->accept();
+    }
+}
 
-		// 检查窗口是否是顶层窗口（即独立的窗口，不是嵌套在其他窗口中的）
-		if (pWindow->isWindow())
-		{
-			// 发送 Windows 消息，使窗口开始拖动
-			// HTCAPTION 表示鼠标点击的是标题栏
-			// WM_SYSCOMMAND 是一个系统命令消息，SC_MOVE 用于通知窗口开始移动
-			// 该消息将由系统处理，并启动窗口的拖动功能
+void MainWidget::mouseMoveEvent(QMouseEvent* event)
+{
+    if (m_dragging && event->buttons() & Qt::LeftButton)
+    {
+        this->move(event->globalPosition().toPoint() - m_dragPosition);
+        event->accept();  // ✅ 重要
+    }
+}
 
-			SendMessage(HWND(pWindow->winId()), WM_SYSCOMMAND, SC_MOVE + HTCAPTION, 0);
-		}
-	}
+void MainWidget::mouseReleaseEvent(QMouseEvent* event)
+{
+    if (event->button() == Qt::LeftButton)
+    {
+        m_dragging = false;
+        event->accept();  // ✅ 重要
+    }
+}
 
-	// 忽略当前的鼠标事件，确保事件不会进一步传递给其他控件
-	event->ignore();
+void MainWidget::mouseDoubleClickEvent(QMouseEvent* event)
+{
+    if (this->isFullScreen())
+    {
+        this->showNormal();
+    }
+    else
+    {
+        this->showFullScreen();
+    }
 }
 ```
 
@@ -502,76 +747,60 @@ void CTitleBar::mousePressEvent(QMouseEvent* event)
 这段代码是一个Qt框架中自定义无边框窗口（frameless window）的一部分，特别是处理Windows消息（通过`nativeEvent`函数）以实现自定义的边框和标题栏行为。下面是对这段代码的详细注释：
 
 ```cpp
-// CFrameLessWidgetBase类的nativeEvent成员函数，用于处理Windows原生事件
-bool CFrameLessWidgetBase::nativeEvent(const QByteArray& eventType, void* message, long* result)
+bool CFrameLessWidget::nativeEvent(const QByteArray& eventType, void* message, long* result)
 {
-    // 将传入的message参数转换为MSG*类型，MSG是Windows API中用于接收消息的结构体
     MSG* param = static_cast<MSG*>(message);
- 
-    // 根据消息类型进行分支处理
-    switch (param->message)
+
+    if (param->message == WM_NCHITTEST)
     {
-    case WM_NCHITTEST: // 处理WM_NCHITTEST消息，该消息用于确定鼠标在非客户区（边框、标题栏等）的哪个位置
-    {
-        // 计算鼠标点击位置相对于窗口左上角的坐标
-        int nX = GET_X_LPARAM(param->lParam) - this->geometry().x();
-        int nY = GET_Y_LPARAM(param->lParam) - this->geometry().y();
- 
-        /*
-        // 注释掉的代码：如果鼠标点击位置有子控件，则直接调用QWidget的nativeEvent处理
-        // 这通常用于确保子控件（如按钮、文本框等）能够正常接收事件
-        if (childAt(nX, nY) != nullptr)
-            return QWidget::nativeEvent(eventType, message, result);
-        */
- 
-        // 检查鼠标点击位置是否在窗口内容区域（排除边框宽度）
-        if (nX > m_nBorderWidth && nX < this->width() - m_nBorderWidth &&
-            nY > m_nBorderWidth && nY < this->height() - m_nBorderWidth)
+        QPoint localPos = mapFromGlobal(QPoint(GET_X_LPARAM(param->lParam), GET_Y_LPARAM(param->lParam)));
+        int nX = localPos.x();
+        int nY = localPos.y();
+
+        // 确保边框宽度有效
+        if (m_nBorDerWidth <= 0)
+            m_nBorDerWidth = 8;
+
+        // 判断是否是内容区域
+        if (nX > m_nBorDerWidth && nX < this->width() - m_nBorDerWidth &&
+            nY > m_nBorDerWidth && nY < this->height() - m_nBorDerWidth)
         {
-            // 如果在内容区域且该位置有子控件，则让QWidget处理该事件
             if (childAt(nX, nY) != nullptr)
-                return QWidget::nativeEvent(eventType, message, result);
+                return QWidget::nativeEvent(eventType, message, (qintptr*)result);
+
+            *result = HTCLIENT; // 让 Windows 处理
+            return true;
         }
- 
-        // 根据鼠标点击位置设置*result的值，以改变窗口的拖动行为
-        // 这些值（如HTLEFT, HTRIGHT等）是Windows API中定义的，用于指示鼠标在非客户区的哪个位置
-        if ((nX > 0) && (nX < m_nBorderWidth))
-            *result = HTLEFT; // 左侧边框
- 
-        if ((nX > this->width() - m_nBorderWidth) && (nX < this->width()))
-            *result = HTRIGHT; // 右侧边框
- 
-        if ((nY > 0) && (nY < m_nBorderWidth))
-            *result = HTTOP; // 顶部边框
- 
-        if ((nY > this->height() - m_nBorderWidth) && (nY < this->height()))
-            *result = HTBOTTOM; // 底部边框
- 
-        if ((nX > 0) && (nX < m_nBorderWidth) && (nY > 0) && (nY < m_nBorderWidth))
-            *result = HTTOPLEFT; // 左上角
- 
-        if ((nX > this->width() - m_nBorderWidth) && (nX < this->width()) && (nY > 0) && (nY < m_nBorderWidth))
-            *result = HTTOPRIGHT; // 右上角
- 
-        if ((nX > 0) && (nX < m_nBorderWidth) && (nY > this->height() - m_nBorderWidth) && (nY < this->height()))
-            *result = HTBOTTOMLEFT; // 左下角
- 
-        if ((nX > this->width() - m_nBorderWidth) && (nX < this->width()) && (nY > this->height() - m_nBorderWidth) && (nY < this->height()))
-            *result = HTBOTTOMRIGHT; // 右下角
- 
-        // 表明事件已被处理
+
+        // 判断边框区域
+        if (nX <= m_nBorDerWidth)
+            *result = HTLEFT;
+        else if (nX >= this->width() - m_nBorDerWidth)
+            *result = HTRIGHT;
+
+        if (nY <= m_nBorDerWidth)
+            *result = HTTOP;
+        else if (nY >= this->height() - m_nBorDerWidth)
+            *result = HTBOTTOM;
+
+        // 判断四个角
+        if (nX <= m_nBorDerWidth && nY <= m_nBorDerWidth)
+            *result = HTTOPLEFT;
+        else if (nX >= this->width() - m_nBorDerWidth && nY <= m_nBorDerWidth)
+            *result = HTTOPRIGHT;
+        else if (nX <= m_nBorDerWidth && nY >= this->height() - m_nBorDerWidth)
+            *result = HTBOTTOMLEFT;
+        else if (nX >= this->width() - m_nBorDerWidth && nY >= this->height() - m_nBorDerWidth)
+            *result = HTBOTTOMRIGHT;
+
         return true;
     }
-    }
- 
-    // 如果不是WM_NCHITTEST消息，则不处理
+
     return false;
 }
 ```
 
 这段代码的主要目的是通过处理`WM_NCHITTEST`消息来自定义无边框窗口的拖动行为。通过检查鼠标点击的位置，并设置相应的返回值，可以改变窗口的拖动区域，从而实现自定义的边框和标题栏效果。
-
-
 
 ## 框架
 

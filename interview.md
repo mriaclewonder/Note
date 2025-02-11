@@ -105,6 +105,7 @@ enum
 如果一个类的构造函数只有一个参数（或多个参数但具有默认值），编译器可能自动进行隐式转换，导致意外的行为。
 
 **示例：未使用 `explicit`**
+
 ```cpp
 class MyString {
 public:
@@ -232,6 +233,186 @@ int main() {
 #### **总结**
 - **用 `explicit`**：当隐式转换可能导致歧义或安全隐患时。
 - **不用 `explicit`**：当隐式转换是合理且符合设计意图时（如 `std::string` 允许从 `const char*` 隐式构造）。
+
+
+
+### 纯虚函数
+C++中 纯虚函数的语法格式为：
+
+> virtual 返回值类型 函数名 (函数参数) = 0;
+
+`包含纯虚函数的类称为抽象类`
+
+抽象类通常是作为基类，让派生类去实现纯虚函数。派生类必须实现纯虚函数才能被实例化。
+
+**注意**
+
+- 类A中只要有一个纯虚函数，那么这个类就是抽象类，但是类A中可以有普通函数和成员
+- 继承抽象类时，只有实现其父类的所有纯虚函数，子类才能是普通类，否则还是抽象类，不能实例化
+- 只有虚函数才能被声明为纯虚函数，普通的成员函数不能被声明为纯虚函数
+
+### 强制类型转换
+
+#### static_cast
+
+> `static_cast` 是 C++ 中的一个类型转换运算符，用于在编译时执行类型转换。它比 C 风格的强制转换 (`(type)value`) 更安全，并且能够在一定程度上防止错误的类型转换。
+>
+> ------
+>
+> ## **`static_cast` 的用法**
+>
+> ```
+> static_cast<T>(expression)
+> ```
+>
+> 它主要用于以下几种情况：
+>
+> ### **1. 基本数据类型之间的转换**
+>
+> `static_cast` 可以用于将 `int`、`double`、`char` 等基本数据类型相互转换。
+>
+> ```cpp
+> #include <iostream>
+> 
+> int main() {
+>     double d = 3.14;
+>     int i = static_cast<int>(d);  // 转换为整数，去掉小数部分
+>     std::cout << "i = " << i << std::endl;
+> 
+>     char c = static_cast<char>(65);  // 转换为 ASCII 字符
+>     std::cout << "c = " << c << std::endl;
+> 
+>     return 0;
+> }
+> ```
+>
+> **输出：**
+>
+> ```
+> i = 3
+> c = A
+> ```
+>
+> ------
+>
+> ### **2. 指针类型的转换（父子类之间的转换）**
+>
+> 在类继承关系中，`static_cast` 可用于 **安全地** 在**父类和子类之间转换指针或引用**（只能用于从子类转换到父类，或显式地从父类转换回子类）。
+>
+> ```cpp
+> #include <iostream>
+> 
+> class Base {
+> public:
+>     virtual void show() { std::cout << "Base class" << std::endl; }
+> };
+> 
+> class Derived : public Base {
+> public:
+>     void show() override { std::cout << "Derived class" << std::endl; }
+> };
+> 
+> int main() {
+>     Derived d;
+>     Base* basePtr = static_cast<Base*>(&d);  // 子类 -> 父类（安全）
+>     basePtr->show();
+> 
+>     Derived* derivedPtr = static_cast<Derived*>(basePtr);  // 父类 -> 子类（需确保 basePtr 实际指向 Derived）
+>     derivedPtr->show();
+> 
+>     return 0;
+> }
+> ```
+>
+> **输出：**
+>
+> ```
+> Derived class
+> Derived class
+> ```
+>
+> **注意**：
+>
+> - **子类 → 父类** 是安全的（向上转换）。
+> - **父类 → 子类** 需要确保 `Base*` 实际上指向的是 `Derived` 对象，否则行为未定义（UB）。
+>
+> ------
+>
+> ### **3. `void\*` 转换回原来的类型**
+>
+> C++ 允许 `void*` 指针存储任意类型的指针，`static_cast` 可以用于将其转换回原来的类型。
+>
+> ```cpp
+> #include <iostream>
+> 
+> int main() {
+>     int a = 10;
+>     void* ptr = &a;  // void* 可以存储任何类型的指针
+> 
+>     // 需要转换回 int*
+>     int* intPtr = static_cast<int*>(ptr);
+>     std::cout << "Value: " << *intPtr << std::endl;  // 输出 10
+> 
+>     return 0;
+> }
+> ```
+>
+> **输出：**
+>
+> ```
+> Value: 10
+> ```
+>
+> ------
+>
+> ### **4. 枚举类型与整数之间的转换**
+>
+> `static_cast` 允许枚举类型和整数之间进行转换。
+>
+> ```cpp
+> #include <iostream>
+> 
+> enum Color { RED = 1, GREEN, BLUE };
+> 
+> int main() {
+>     Color c = GREEN;
+>     int num = static_cast<int>(c);  // 枚举转换为 int
+>     std::cout << "Enum as int: " << num << std::endl;
+> 
+>     Color c2 = static_cast<Color>(2);  // int 转换回枚举
+>     std::cout << "Converted Enum: " << c2 << std::endl;
+> 
+>     return 0;
+> }
+> ```
+>
+> **输出：**
+>
+> ```
+> Enum as int: 2
+> Converted Enum: 2
+> ```
+>
+> ------
+>
+> ## **`static_cast` VS 其他转换方式**
+>
+> | 转换方式           | 适用场景                                   | 是否检查       | 是否安全                         |
+> | ------------------ | ------------------------------------------ | -------------- | -------------------------------- |
+> | `static_cast`      | 基本类型转换、类继承指针转换               | 编译时检查     | 安全（前提是逻辑正确）           |
+> | `reinterpret_cast` | 任意类型指针转换（例如 `int*` 转 `char*`） | 无检查         | **极不安全，可能导致未定义行为** |
+> | `dynamic_cast`     | 用于**多态**类型的**安全向下转换**         | 运行时类型检查 | 安全（若转换失败返回 `nullptr`） |
+> | `const_cast`       | 移除 `const` 或 `volatile` 修饰符          | 编译时检查     | 需谨慎使用，可能导致未定义行为   |
+>
+> ------
+>
+> ## **总结**
+>
+> - `static_cast` 适用于**编译时可确定**的转换，如**基本类型转换、父子类转换（非多态）**、`void*` 转换等。
+> - `static_cast` **不进行运行时检查**，因此如果用于 `Base*` 转换回 `Derived*`，需要确保对象实际是 `Derived` 类型，否则会有**未定义行为（UB）**。
+> - **避免使用 `static_cast` 进行不安全的指针转换**（例如 `int*` 转 `char*`，应使用 `reinterpret_cast`）。
+>
+> 如果你的转换涉及多态类，并且需要**运行时类型检查**，应使用 `dynamic_cast`。
 
 ## Qt
 
@@ -368,4 +549,17 @@ Rectangle {
 
 
 
-## 
+## Linux
+
+
+
+## 设计模式
+
+
+
+## STL
+
+
+
+
+
