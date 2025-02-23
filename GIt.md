@@ -39,3 +39,5 @@
 ### git push 推送代码到远端
 
 ![image-20250202160228263](GIt.assets/image-20250202160228263.png)
+
+![image-20250217095441232](D:/Code/TYPORA/Note/GIt.assets/image-20250217095441232.png)
