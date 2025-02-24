@@ -818,6 +818,247 @@ static_assert(alignof(AlignExample) == 4, "Alignment error");
 
 
 
+### **联合Union**
+
+---
+
+#### **一、联合（Union）的原理**
+- **定义**：联合是一种特殊的数据类型，允许在**同一块内存空间**中存储**不同类型**的数据，所有成员共享内存地址。
+- **内存分配**：联合的大小等于其**最大成员**的大小（例如：`union { int i; char str[20]; }` 的大小为20字节）。
+- **特性**：
+  - 任何时刻只能使用**一个成员**，修改一个成员会覆盖其他成员的值。
+  - 成员的起始地址相同，但类型可以不同。
+
+---
+
+#### **二、联合的用途**
+1. **节省内存**  
+   - 在内存受限的场景（如嵌入式系统）中，通过共享内存减少空间占用。
+   - 示例：同一块内存可交替存储整型、浮点型或字符串。
+
+2. **灵活数据转换**  
+   - 实现不同类型数据的快速转换（如网络数据包解析、传感器数据处理）。
+   - 示例：将字节数组 `char[4]` 转换为 `int` 或 `short` 类型。
+
+3. **处理硬件寄存器**  
+   - 在嵌入式开发中，通过联合访问同一寄存器的不同位段。
+
+---
+
+#### **三、联合的实现**
+##### **1. 基本语法**
+```c
+union Data {
+    int i;
+    float f;
+    char str[20];
+};
+union Data data;  // 声明联合变量
+```
+
+##### **2. 数据覆盖示例**
+```c
+data.i = 10;       // 写入整型
+printf("%d", data.i);
+data.f = 220.5;    // 覆盖为浮点型
+printf("%f", data.f);
+```
+
+##### **3. 数据打包应用**
+```c
+union SensorData {
+    unsigned char bytes[6];
+    struct {
+        unsigned short x, y, z;  // 16位传感器数据
+    } axis;
+};
+// 通过字节数组赋值后，直接读取结构体成员
+sensor.bytes[0] = 0x21;
+sensor.bytes[1] = 0x43;
+printf("X轴值：0x%x", sensor.axis.x);  // 输出：0x4321（小端模式）
+```
+
+#### **五、相关知识点**
+1. **大小端（Endianness）**  
+   - **小端模式**：低位字节存储在低地址（如x86架构）。  
+   - **大端模式**：高位字节存储在低地址（如网络传输协议）。  
+   - 影响联合数据解析，需显式处理字节序（如移位操作）。
+
+2. **类型安全与风险**  
+   - **风险**：直接通过联合转换类型可能导致未定义行为（如浮点型转整型）。  
+   - **解决方案**：使用 `memcpy` 或手动字节操作实现安全转换。
+
+3. **与结构体的嵌套**  
+   - 示例：  
+     ```c
+     struct Packet {
+         int type;
+         union {
+             int number;
+             char *str;
+         } payload;  // 根据type字段选择解析方式
+     }; 
+     ```
+
+---
+
+#### **六、总结**
+- **适用场景**：内存优化、数据格式转换、硬件寄存器访问。  
+- **注意事项**：  
+  - 避免未经验证的类型转换。  
+  - 需显式处理字节序问题（尤其在跨平台开发中）。  
+- **面试重点**：内存布局、大小端影响、联合与结构体的对比。
+
+
+
+
+
+### **友元Friend**
+
+---
+
+#### **一、友元的原理**
+1. **定义**：  
+   - **友元函数（Friend Function）**：允许**非成员函数**访问类的**私有（private）**和**保护（protected）**成员。  
+   - **友元类（Friend Class）**：允许另一个类的**所有成员函数**访问当前类的私有和保护成员。  
+
+2. **核心特性**：  
+   - **突破封装性**：友元机制是C++对面向对象封装特性的**有限破坏**，用于解决特定场景的访问权限问题。  
+   - **单向性**：友元关系**不可传递**（A是B的友元，B是C的友元，不意味着A是C的友元）。  
+   - **声明位置**：友元声明必须在类的**内部**，但友元函数/类的定义可以在类外部。
+
+---
+
+#### **二、友元的用途**
+1. **运算符重载**：  
+   - 重载`<<`或`>>`运算符时，需将重载函数声明为友元以直接访问类的私有数据。  
+   ```cpp
+   class Vector {
+   private:
+       int x, y;
+   public:
+       friend ostream& operator<<(ostream& os, const Vector& v);
+   };
+   ostream& operator<<(ostream& os, const Vector& v) {
+       os << "(" << v.x << ", " << v.y << ")";  // 访问私有成员x和y
+       return os;
+   }
+   ```
+
+2. **跨类协作**：  
+   - 当两个类需要紧密协作时（如迭代器与容器），通过友元简化访问逻辑。  
+   ```cpp
+   class Node {
+   private:
+       int data;
+       friend class LinkedList;  // LinkedList可访问Node的私有成员
+   };
+   ```
+
+3. **单元测试**：  
+   - 测试类声明为被测类的友元，以便直接访问私有成员进行验证。  
+   ```cpp
+   class MyClass {
+   private:
+       int internalState;
+       friend class MyClassTest;  // 测试类
+   };
+   ```
+
+---
+
+#### **三、友元的实现**
+##### **1. 友元函数**
+- **声明语法**：在类内部使用`friend`关键字声明函数。  
+  ```cpp
+  class MyClass {
+  private:
+      int secret;
+  public:
+      friend void friendFunction(MyClass& obj);  // 友元函数声明
+  };
+  void friendFunction(MyClass& obj) {
+      obj.secret = 42;  // 直接访问私有成员
+  }
+  ```
+
+##### **2. 友元类**
+- **声明语法**：在类内部声明另一个类为友元。  
+  ```cpp
+  class Storage {
+  private:
+      int data;
+      friend class Backup;  // Backup类可访问Storage的私有成员
+  };
+  class Backup {
+  public:
+      void save(const Storage& s) {
+          cout << s.data;  // 直接访问Storage的私有成员data
+      }
+  };
+  ```
+
+##### **3. 注意事项**
+- **前向声明**：若友元类/函数定义在类之后，需提前声明。  
+  ```cpp
+  class Storage;  // 前向声明
+  class Backup {
+  public:
+      void save(const Storage& s);
+  };
+  class Storage {
+      friend class Backup;  // 友元类声明
+      int data;
+  };
+  void Backup::save(const Storage& s) {
+      cout << s.data;  // 合法访问
+  }
+  ```
+
+---
+
+#### **五、相关知识点**
+1. **封装性与友元的权衡**  
+   - **优点**：提供必要的灵活性，简化复杂交互逻辑。  
+   - **缺点**：增加类间耦合，降低代码可维护性。  
+   - **替代方案**：优先使用公有接口（如`getter/setter`），仅在必要时使用友元。
+
+2. **运算符重载与友元**  
+   - 示例：重载`+`运算符实现两个对象的加法。  
+   ```cpp
+   class Complex {
+   private:
+       double real, imag;
+       friend Complex operator+(const Complex& a, const Complex& b);
+   };
+   Complex operator+(const Complex& a, const Complex& b) {
+       return Complex(a.real + b.real, a.imag + b.imag);
+   }
+   ```
+
+3. **模板类中的友元**  
+   - 模板类的友元声明需额外处理：  
+   ```cpp
+   template<typename T>
+   class Box {
+       T content;
+       friend void peek(const Box<T>& box) {  // 友元函数模板
+           cout << box.content;
+       }
+   };
+   ```
+
+---
+
+#### **六、总结**
+- **适用场景**：运算符重载、跨类协作、单元测试。  
+- **注意事项**：  
+  - 友元声明不可继承或传递。  
+  - 过度使用会破坏封装性，需谨慎评估必要性。  
+- **面试重点**：友元的作用、声明语法、与封装性的关系。
+
+
+
 ### **struct 与 typedef struct**
 
 ---
@@ -970,7 +1211,7 @@ Rect r(10, 20);  // 直接使用类型名
 
 
 
-### **C++ 中 `struct` 和 `class` 详解**
+### **struct 和 class **
 
 ---
 
@@ -1142,6 +1383,378 @@ d2.a = 20;     // 正确：public 继承
 - **最佳实践**：
   - 根据语义选择：数据聚合用 `struct`，封装逻辑用 `class`。
   - 显式声明访问权限和继承方式，避免依赖默认行为。
+
+
+
+### **C++ 线程**
+
+---
+
+#### **一、线程基础**
+##### 1. 线程概念
+- **线程**：程序执行的最小单元，共享进程的内存空间。
+- **多线程优势**：
+  - 提升 CPU 利用率（并行计算）。
+  - 响应式 UI（主线程处理交互，后台线程处理耗时任务）。
+- **C++ 线程支持**：C++11 起通过 `<thread>` 头文件提供标准线程库。
+
+##### 2. 创建线程
+```cpp
+#include <iostream>
+#include <thread>
+
+void task() {
+    std::cout << "子线程执行" << std::endl;
+}
+
+int main() {
+    std::thread t(task);  // 创建线程并启动
+    t.join();             // 等待线程结束
+    std::cout << "主线程结束" << std::endl;
+    return 0;
+}
+```
+
+---
+
+#### **二、线程管理**
+##### 1. `join()` 与 `detach()`
+- **`join()`**：阻塞主线程，直到子线程完成。
+- **`detach()`**：分离线程，允许子线程独立运行（主线程无需等待）。
+  ```cpp
+  std::thread t(task);
+  t.detach();  // 分离线程
+  // 注意：分离后无法再 join()
+  ```
+
+##### 2. 线程标识与硬件并发
+- **获取线程 ID**：
+  ```cpp
+  std::thread::id tid = t.get_id();
+  ```
+- **查询硬件支持的并发线程数**：
+  ```cpp
+  unsigned int n = std::thread::hardware_concurrency();
+  ```
+
+---
+
+#### **三、线程同步**
+##### 1. 互斥锁（Mutex）
+- **作用**：防止多个线程同时访问共享资源。
+- **类型**：
+  - `std::mutex`：基本互斥锁。
+  - `std::recursive_mutex`：可重入锁（同一线程可多次加锁）。
+  - `std::timed_mutex`：支持超时加锁。
+
+###### 示例：使用 `std::mutex`
+```cpp
+#include <mutex>
+
+std::mutex mtx;
+int shared_data = 0;
+
+void increment() {
+    mtx.lock();
+    ++shared_data;
+    mtx.unlock();
+}
+```
+
+##### 2. 锁管理器（RAII 风格）
+- **`std::lock_guard`**：自动管理锁的生命周期。
+  ```cpp
+  void safe_increment() {
+      std::lock_guard<std::mutex> lock(mtx);
+      ++shared_data;
+  }
+  ```
+- **`std::unique_lock`**：更灵活的锁（支持延迟锁定、手动解锁）。
+  ```cpp
+  void flexible_increment() {
+      std::unique_lock<std::mutex> lock(mtx, std::defer_lock);
+      lock.lock();
+      ++shared_data;
+      lock.unlock();  // 可手动释放
+  }
+  ```
+
+##### 3. 条件变量（Condition Variable）
+- **作用**：线程间通知机制，用于等待特定条件成立。
+  ```cpp
+  #include <condition_variable>
+  
+  std::mutex mtx;
+  std::condition_variable cv;
+  bool ready = false;
+  
+  void wait_for_signal() {
+      std::unique_lock<std::mutex> lock(mtx);
+      cv.wait(lock, []{ return ready; });  // 等待 ready 为 true
+      // 执行后续操作
+  }
+  
+  void send_signal() {
+      {
+          std::lock_guard<std::mutex> lock(mtx);
+          ready = true;
+      }
+      cv.notify_one();  // 通知一个等待线程
+  }
+  ```
+
+---
+
+#### **四、线程安全与数据竞争**
+##### 1. 数据竞争（Data Race）
+- **定义**：多个线程同时访问同一内存位置，且至少有一个是写操作。
+- **后果**：未定义行为（程序崩溃、数据损坏）。
+
+##### 2. 原子操作（Atomic）
+- **作用**：无需锁的线程安全操作。
+  ```cpp
+  #include <atomic>
+  
+  std::atomic<int> counter(0);
+  
+  void atomic_increment() {
+      counter.fetch_add(1, std::memory_order_relaxed);
+  }
+  ```
+
+##### 3. 内存顺序（Memory Order）
+- **控制原子操作的内存可见性**：
+  - `memory_order_relaxed`：无顺序保证。
+  - `memory_order_acquire`/`release`：同步特定内存访问。
+  - `memory_order_seq_cst`（默认）：全局顺序一致。
+
+---
+
+#### **五、高级线程工具**
+##### 1. 异步任务（`std::async`）
+- **启动异步任务并返回 `std::future`**：
+  ```cpp
+  #include <future>
+  
+  int compute() { return 42; }
+  
+  int main() {
+      std::future<int> result = std::async(std::launch::async, compute);
+      std::cout << result.get() << std::endl;  // 阻塞等待结果
+      return 0;
+  }
+  ```
+
+##### 2. 线程池（C++17 无标准实现，需第三方库或自定义）
+```cpp
+// 自定义简单线程池示例
+#include <vector>
+#include <queue>
+#include <functional>
+
+class ThreadPool {
+public:
+    ThreadPool(size_t threads) {
+        for (size_t i = 0; i < threads; ++i) {
+            workers.emplace_back([this] {
+                while (true) {
+                    std::function<void()> task;
+                    {
+                        std::unique_lock<std::mutex> lock(queue_mtx);
+                        cv.wait(lock, [this]{ return !tasks.empty() || stop; });
+                        if (stop && tasks.empty()) return;
+                        task = std::move(tasks.front());
+                        tasks.pop();
+                    }
+                    task();
+                }
+            });
+        }
+    }
+
+    template<class F>
+    void enqueue(F&& f) {
+        {
+            std::lock_guard<std::mutex> lock(queue_mtx);
+            tasks.emplace(std::forward<F>(f));
+        }
+        cv.notify_one();
+    }
+
+    ~ThreadPool() {
+        {
+            std::lock_guard<std::mutex> lock(queue_mtx);
+            stop = true;
+        }
+        cv.notify_all();
+        for (auto& worker : workers)
+            worker.join();
+    }
+
+private:
+    std::vector<std::thread> workers;
+    std::queue<std::function<void()>> tasks;
+    std::mutex queue_mtx;
+    std::condition_variable cv;
+    bool stop = false;
+};
+```
+
+---
+
+#### **六、最佳实践**
+1. **优先使用 RAII 锁**（如 `lock_guard`）避免忘记解锁。
+2. **避免全局变量**：尽量通过参数传递数据，减少共享状态。
+3. **最小化锁的持有时间**：减少锁竞争。
+4. **使用原子操作替代锁**：适用于简单计数器等场景。
+5. **谨慎使用 `detach()`**：分离线程的生命周期需明确管理。
+
+#### **八、总结**
+- **核心工具**：`std::thread`, `std::mutex`, `std::condition_variable`, `std::atomic`。
+- **核心原则**：
+  - 避免数据竞争（使用锁或原子操作）。
+  - 优先使用高级抽象（如 `std::async`）。
+- **扩展学习**：
+  - C++17 的 `std::scoped_lock`（多锁 RAII 包装）。
+  - C++20 的 `std::jthread`（自动 join 的线程类）。
+
+
+
+### std::lock_guard 与 std::unique_lock 
+
+---
+
+#### **一、核心原理**
+##### 1. **RAII 机制**
+- **核心思想**：资源获取即初始化（Resource Acquisition Is Initialization），通过对象的生命周期管理资源（如互斥锁）。
+- **作用**：确保在作用域结束时自动释放资源，避免资源泄漏（如忘记解锁导致的死锁）。
+
+##### 2. **`std::lock_guard`**
+- **实现原理**：
+  - 构造函数中锁定互斥量（调用 `mutex.lock()`）。
+  - 析构函数中解锁互斥量（调用 `mutex.unlock()`）。
+  - **不可复制或移动**：确保锁的所有权唯一。
+- **代码示例**：
+  ```cpp
+  template <typename Mutex>
+  class lock_guard {
+  public:
+      explicit lock_guard(Mutex& mtx) : mutex(mtx) { mutex.lock(); }
+      ~lock_guard() { mutex.unlock(); }
+      // 删除拷贝和移动操作
+      lock_guard(const lock_guard&) = delete;
+      lock_guard& operator=(const lock_guard&) = delete;
+  private:
+      Mutex& mutex;
+  };
+  ```
+
+##### 3. **`std::unique_lock`**
+- **实现原理**：
+  - 包含一个互斥量指针和一个布尔值，表示是否拥有锁。
+  - 支持多种锁定策略（如延迟锁定、尝试锁定）。
+  - 允许手动锁定/解锁，并可通过移动语义转移所有权。
+- **代码示例**：
+  ```cpp
+  template <typename Mutex>
+  class unique_lock {
+  public:
+      // 立即锁定
+      explicit unique_lock(Mutex& mtx) : mutex(&mtx), owns(true) { mutex->lock(); }
+      // 延迟锁定（defer_lock）、尝试锁定（try_to_lock）、接管已锁定（adopt_lock）
+      unique_lock(Mutex& mtx, std::defer_lock_t) : mutex(&mtx), owns(false) {}
+      unique_lock(Mutex& mtx, std::try_to_lock_t) : mutex(&mtx), owns(mutex.try_lock()) {}
+      ~unique_lock() { if (owns) mutex->unlock(); }
+      // 支持移动语义
+      unique_lock(unique_lock&& other) : mutex(other.mutex), owns(other.owns) { other.mutex = nullptr; }
+      void lock() { mutex->lock(); owns = true; }
+      void unlock() { mutex->unlock(); owns = false; }
+  private:
+      Mutex* mutex;
+      bool owns;
+  };
+  ```
+
+---
+
+#### **二、核心用途**
+##### 1. **`std::lock_guard`**
+- **场景**：简单的临界区保护，无需手动控制锁。
+- **示例**：
+  ```cpp
+  std::mutex mtx;
+  void safe_write() {
+      std::lock_guard<std::mutex> lock(mtx); // 自动锁定
+      // 操作共享资源...
+  } // 自动解锁
+  ```
+
+##### 2. **`std::unique_lock`**
+- **场景**：
+  - 需要延迟锁定、手动解锁或转移锁所有权。
+  - 配合条件变量（`std::condition_variable`）。
+- **示例**：
+  ```cpp
+  std::mutex mtx;
+  std::condition_variable cv;
+  bool data_ready = false;
+  
+  void consumer() {
+      std::unique_lock<std::mutex> lock(mtx);
+      cv.wait(lock, []{ return data_ready; }); // 自动解锁并等待
+      // 处理数据...
+  }
+  
+  void producer() {
+      {
+          std::lock_guard<std::mutex> lock(mtx);
+          data_ready = true;
+      }
+      cv.notify_one(); // 通知消费者
+  }
+  ```
+
+---
+
+---
+
+#### **四、相关知识点**
+##### 1. **RAII 与异常安全**
+- **核心**：RAII 确保在异常发生时资源自动释放。
+- **示例**：
+  ```cpp
+  void risky_operation() {
+      std::lock_guard<std::mutex> lock(mtx);
+      throw std::runtime_error("error"); // 仍会解锁
+  }
+  ```
+
+##### 2. **互斥量类型**
+- **`std::mutex`**：基本互斥锁。
+- **`std::recursive_mutex`**：允许同一线程多次锁定。
+- **`std::timed_mutex`**：支持超时锁定（`try_lock_for`/`try_lock_until`）。
+
+##### 3. **条件变量（`std::condition_variable`）**
+- **作用**：线程间通知机制，需配合 `std::unique_lock` 使用。
+- **核心方法**：
+  - `wait()`：释放锁并等待通知。
+  - `notify_one()`/`notify_all()`：唤醒等待线程。
+
+##### 4. **死锁避免**
+- **策略**：
+  - 固定锁定顺序（如按地址排序）。
+  - 使用 `std::lock` 同时锁定多个互斥量。
+  - 避免嵌套锁。
+
+---
+
+#### **五、总结**
+- **`std::lock_guard`**：轻量级自动锁，适用于简单临界区。
+- **`std::unique_lock`**：灵活控制锁，适用于条件变量和复杂场景。
+- **面试要点**：理解RAII、锁管理策略、条件变量配合及性能权衡。
+- **最佳实践**：优先用 `lock_guard`，需要灵活性时用 `unique_lock`。
+
+
 
 
 
@@ -1381,6 +1994,205 @@ C++中 纯虚函数的语法格式为：
 - 继承抽象类时，只有实现其父类的所有纯虚函数，子类才能是普通类，否则还是抽象类，不能实例化
 - 只有虚函数才能被声明为纯虚函数，普通的成员函数不能被声明为纯虚函数
 
+
+
+
+
+### **C语言模拟C++类的实现方法**
+
+在C语言中模拟C++类的核心思想是通过**结构体封装数据**、**函数指针模拟方法**、**结构体嵌套实现继承**以及**虚函数表（VTable）实现多态**。以下是具体实现方法及关键技术点：
+
+---
+
+#### **一、结构体模拟类**
+
+**原理**：C语言中结构体（`struct`）可封装数据成员，结合函数指针模拟成员函数，形成类似C++类的结构。  
+**实现示例**：  
+
+```c
+// 定义"类"结构体
+typedef struct Shape {
+    int x, y;                       // 数据成员
+    void (*draw)(struct Shape*);    // 函数指针模拟方法
+} Shape;
+
+// 方法实现
+void drawShape(Shape* shape) {
+    printf("Drawing at (%d, %d)\n", shape->x, shape->y);
+}
+
+// 构造函数
+Shape* newShape(int x, int y) {
+    Shape* obj = (Shape*)malloc(sizeof(Shape));
+    obj->x = x;
+    obj->y = y;
+    obj->draw = drawShape;          // 绑定方法
+    return obj;
+}
+```
+
+**关键点**：  
+
+- 结构体成员包含数据和方法指针。  
+- 构造函数负责分配内存并初始化函数指针。
+
+---
+
+#### **二、继承的实现**
+
+**原理**：通过结构体嵌套模拟继承，派生类结构体包含基类结构体作为第一个成员。  
+**实现示例**：  
+
+```c
+// 派生类Circle继承Shape
+typedef struct Circle {
+    Shape base;     // 基类实例
+    int radius;     // 派生类特有成员
+} Circle;
+
+// 派生类方法重写
+void drawCircle(Shape* shape) {
+    Circle* circle = (Circle*)shape;    // 向下转型
+    printf("Circle at (%d, %d), radius=%d\n", 
+           circle->base.x, circle->base.y, circle->radius);
+}
+
+// 构造函数
+Circle* newCircle(int x, int y, int radius) {
+    Circle* obj = (Circle*)malloc(sizeof(Circle));
+    obj->base = *newShape(x, y);        // 初始化基类部分
+    obj->base.draw = drawCircle;        // 重写方法
+    obj->radius = radius;
+    return obj;
+}
+```
+
+**关键点**：  
+
+- 派生类结构体首成员为基类实例，确保内存对齐。  
+- 通过类型转换（`(Circle*)shape`）实现基类指针访问派生类成员。
+
+---
+
+#### **三、多态与虚函数表（VTable）**
+
+**原理**：通过虚函数表存储函数指针，实现动态绑定。  
+**实现示例**：  
+
+```c
+// 定义虚函数表
+struct VTable {
+    void (*draw)(void*);   // 虚函数指针
+    void (*destroy)(void*);
+};
+
+// 基类包含VTable指针
+typedef struct Shape {
+    struct VTable* vtable;
+    int x, y;
+} Shape;
+
+// 派生类实现虚函数
+void Circle_draw(void* obj) {
+    Circle* circle = (Circle*)obj;
+    printf("Drawing Circle\n");
+}
+
+// 初始化VTable
+static struct VTable Circle_vtable = { Circle_draw, free };
+
+// 创建对象时绑定VTable
+Circle* newCircle(int x, int y) {
+    Circle* obj = malloc(sizeof(Circle));
+    obj->base.vtable = &Circle_vtable;
+    obj->base.x = x;
+    obj->base.y = y;
+    return obj;
+}
+```
+
+**关键点**：  
+
+- 虚函数表存储所有虚函数指针，对象通过`vtable`字段访问。  
+- 调用方法时通过`obj->vtable->draw(obj)`实现多态。
+
+---
+
+#### **四、封装与访问控制**
+
+**原理**：通过头文件隐藏实现细节，仅暴露公共接口。  
+**实现示例**：  
+
+```c
+// shape.h（公共接口）
+typedef struct Shape Shape;
+Shape* newShape(int x, int y);
+void draw(Shape* shape);
+
+// shape.c（私有实现）
+struct Shape {
+    int x, y;
+    void (*internalDraw)(struct Shape*);
+};
+```
+
+**关键点**：  
+
+- 头文件仅声明不完整结构体类型，隐藏成员细节。  
+- 用户只能通过公共函数操作对象，模拟封装。
+
+---
+
+#### **五、内存管理与析构**
+
+**原理**：手动管理内存分配与释放，模拟构造函数和析构函数。  
+**实现示例**：  
+
+```c
+// 构造函数
+Shape* newShape(int x, int y) {
+    Shape* obj = malloc(sizeof(Shape));
+    obj->x = x;
+    obj->y = y;
+    return obj;
+}
+
+// 析构函数
+void destroyShape(Shape* shape) {
+    free(shape);
+}
+```
+
+**关键点**：  
+
+- 必须显式调用`free`释放内存，避免泄漏。  
+- 析构函数可扩展为释放嵌套资源（如动态数组）。
+
+---
+
+#### **对比C++与C实现的差异**
+
+| **特性**     | **C++实现**                     | **C模拟实现**        |
+| ------------ | ------------------------------- | -------------------- |
+| **封装**     | 通过`private`/`public`关键字    | 头文件隐藏结构体成员 |
+| **继承**     | 直接语法支持                    | 结构体嵌套+类型转换  |
+| **多态**     | 虚函数表自动生成                | 手动定义VTable       |
+| **内存管理** | `new`/`delete`自动调用构造/析构 | 手动`malloc`/`free`  |
+
+---
+
+#### **应用场景与注意事项**
+
+1. **嵌入式系统**：C模拟类在资源受限环境中更高效，避免C++运行时开销。  
+2. **跨平台兼容性**：避免依赖C++编译器特性，适合需要兼容旧系统的项目。  
+3. **风险提示**：  
+   - 类型安全需手动保证（如向下转型可能引发未定义行为）。  
+   - 代码复杂度高，需严格管理函数指针和内存。
+
+
+
+
+
 ### 强制类型转换
 
 #### static_cast
@@ -1567,9 +2379,9 @@ class B
 
 
 
-### 面试题
+## 面试题
 
-#### **volatile面试常见问题**
+#### **volatile**
 
 1. **`volatile` 的作用是什么？**  
    答：强制编译器每次访问变量时都从内存读写，防止优化导致读取旧值或忽略写入操作。
@@ -1596,7 +2408,7 @@ class B
 5. **`volatile` 和 `const` 可以一起用吗？**  
    答：可以。例如只读的硬件寄存器：`volatile const int* reg = ...`。
 
-#### **assert()常见面试题**
+#### **assert()**
 
 1. **`assert()` 的作用是什么？**  
    答：用于调试阶段检查程序中的逻辑错误，条件不满足时终止程序并输出错误信息。
@@ -1634,7 +2446,7 @@ class B
 
 
 
-#### **sizeof()常见面试题**
+#### **sizeof()**
 
 ##### 1. **`sizeof` 和 `strlen` 的区别？**
 
@@ -1671,7 +2483,7 @@ sizeof(++x);    // 表达式不执行，x 仍为 5
 
 
 
-#### #pragma pack(n)**常见问题**
+#### #pragma pack(n)****
 
 ##### 1. 如何计算 `#pragma pack(n)` 下的结构体大小？
 
@@ -1697,7 +2509,41 @@ sizeof(++x);    // 表达式不执行，x 仍为 5
 
 
 
-#### **struct，typedef struct常见问题**
+#### **union**
+
+##### **1. 经典面试题**
+
+- **题目**：  
+
+  ```c
+  union Number {
+      int value;
+      char str[2];
+  } test;
+  test.value = 0;
+  test.str[0] = 10;
+  test.str[1] = 1;
+  printf("%d", test.value);  // 输出结果是什么？
+  ```
+
+- **答案**：  
+
+  - **小端模式**：低位字节在前，结果为 `0x0000010A` → **266**。  
+  - **大端模式**：高位字节在前，结果为 `0x0A010000` → **168427520**。  
+  - **关键点**：联合成员共享内存，需结合字节序分析。
+
+##### **2. 其他常见问题**
+
+- **Q1**：联合与结构体的区别？  
+  **A**：联合成员共享内存，结构体成员独立分配内存；联合节省空间，结构体支持同时存储所有成员。
+- **Q2**：如何避免联合数据覆盖？  
+  **A**：通过逻辑控制确保同一时间只使用一个成员，或结合枚举类型标记当前有效成员。
+
+---
+
+
+
+#### **struct，typedef struct**
 
 ##### 1. 为什么 C 语言中需要 `typedef struct`？
 
@@ -1723,7 +2569,7 @@ sizeof(++x);    // 表达式不执行，x 仍为 5
 
 
 
-#### struct  class**常见问题**
+#### struct  class
 
 ##### 1. 为什么 C++ 保留 `struct` 关键字？
 
@@ -1746,15 +2592,122 @@ sizeof(++x);    // 表达式不执行，x 仍为 5
 
 ---
 
-#### 
+#### **friend**
 
+##### **1. 经典面试题**
 
+- **题目**：以下代码能否编译通过？  
+
+  ```cpp
+  class A {
+      int value;
+      friend void printValue(A a);
+  };
+  void printValue(A a) {
+      cout << a.value;  // 是否正确？
+  }
+  ```
+
+  **答案**：可以编译。`printValue`是`A`的友元函数，允许访问私有成员`value`。
+
+##### **2. 其他常见问题**
+
+- **Q1**：友元关系是否继承？  
+  **A**：**不继承**。基类的友元不是派生类的友元，反之亦然。  
+
+- **Q2**：友元函数能否是另一个类的成员函数？  
+  **A**：可以。例如：  
+
+  ```cpp
+  class B {
+  public:
+      void accessA();
+  };
+  class A {
+      friend void B::accessA();  // 声明B的成员函数为友元
+      int secret;
+  };
+  void B::accessA() {
+      A a;
+      a.secret = 10;  // 合法访问
+  }
+  ```
+
+#### **线程**
+
+##### 1. 如何传递参数给线程函数？
+
+- **直接传递**（参数会被拷贝到线程的存储空间）：
+
+  ```cpp
+  void print(int a, const std::string& s) {
+      std::cout << a << ", " << s << std::endl;
+  }
+  
+  std::thread t(print, 42, "hello");
+  ```
+
+##### 2. 如何捕获异常？
+
+- **在子线程内部捕获**：
+
+  ```cpp
+  void safe_task() {
+      try {
+          // 可能抛出异常的代码
+      } catch (const std::exception& e) {
+          std::cerr << e.what() << std::endl;
+      }
+  }
+  ```
+
+##### 3. 如何终止线程？
+
+- **不推荐强制终止**：C++ 标准未提供安全终止线程的机制。
+
+- **推荐协作式终止**：通过标志变量通知线程退出。
+
+  ```cpp
+  std::atomic<bool> exit_flag(false);
+  
+  void worker() {
+      while (!exit_flag) {
+          // 执行任务
+      }
+  }
+  ```
+
+---
+
+##### 线程安全
+
+当你多线程不管运行多少次，运行的结果都和单线程运行的结果一样，那么线程就是安全的
 
 #### **深拷贝和浅拷贝**
 
 - **浅拷贝**：简单复制对象的值，指针成员共享内存，可能导致双重释放或意外修改。
 - **深拷贝**：完整复制对象的所有数据，包括动态分配的内存，对象之间彼此独立。
 - 避免内存管理问题的最佳实践是使用智能指针（如 `std::unique_ptr`、`std::shared_ptr`）代替原始指针，这些智能指针会自动处理内存释放问题，避免手动深拷贝的繁琐。
+
+#### emplace_back 和 push_back
+
+emplace_back  直接调用  成员的构造函数 构造一个新的变量
+
+push_back 调用的是拷贝构造
+
+emplace_back  比 push_back 更节省资源
+
+
+
+#### **面试题示例**
+1. **Q**：如何在C语言中实现多态？  
+   **A**：通过虚函数表（VTable）存储函数指针，对象持有VTable指针，调用时动态绑定。
+
+2. **Q**：C模拟继承时如何避免内存对齐问题？  
+   **A**：派生类结构体首成员为基类实例，确保基类数据位于内存起始位置。
+
+3. **Q**：C语言模拟类与C++类的主要性能差异？  
+   **A**：C实现无虚函数查找开销，但手动管理内存可能引入错误；C++依赖编译器优化，但虚函数调用有间接跳转成本。
 
 
 
@@ -1799,6 +2752,61 @@ sizeof(++x);    // 表达式不执行，x 仍为 5
 **10. 如何调试同步和异步代码？**
 
 答：调试同步代码时，可按顺序设置断点，逐步调试。调试异步代码时，使用调试工具跟踪异步任务的执行，如 Chrome 开发者工具跟踪异步函数的执行；使用日志记录关键信息，便于跟踪异步任务的执行过程；使用调试框架或库，提供异步调试支持。
+
+
+
+#### lock_guard unique_lock****
+
+##### 1. **`lock_guard` 和 `unique_lock` 的区别是什么？**
+
+- **答案**：
+  - `lock_guard` 是轻量级的RAII锁，构造时立即锁定，析构时解锁，不支持手动操作。
+  - `unique_lock` 更灵活，支持延迟锁定、手动解锁、移动语义，且必须用于条件变量。
+
+##### 2. **为什么条件变量必须配合 `unique_lock` 使用？**
+
+- **答案**：
+  - `condition_variable::wait()` 需要临时解锁并重新锁定，`unique_lock` 允许手动控制锁状态。
+  - `lock_guard` 无法在等待期间释放锁。
+
+##### 3. **什么情况下应该优先使用 `lock_guard`？**
+
+- **答案**：
+  - 简单的临界区保护，无需复杂操作。
+  - 需要最小化性能开销时（`lock_guard` 无额外状态存储）。
+
+##### 4. **如何实现多个互斥量的同时锁定？**
+
+- **答案**：
+
+  - 使用 `std::lock(mtx1, mtx2)` 避免死锁，再配合 `lock_guard` 或 `unique_lock` 管理。
+
+  ```cpp
+  std::mutex mtx1, mtx2;
+  void safe_operation() {
+      std::lock(mtx1, mtx2); // 同时锁定，避免死锁
+      std::lock_guard<std::mutex> lock1(mtx1, std::adopt_lock);
+      std::lock_guard<std::mutex> lock2(mtx2, std::adopt_lock);
+      // 操作共享资源...
+  }
+  ```
+
+##### 5. **`unique_lock` 的所有权转移是如何实现的？**
+
+- **答案**：
+
+  - 通过移动构造函数和移动赋值操作符转移锁的所有权。
+
+  - 示例：
+
+    ```cpp
+    std::unique_lock<std::mutex> get_lock(std::mutex& mtx) {
+        std::unique_lock<std::mutex> lock(mtx);
+        return lock; // 转移所有权
+    }
+    ```
+
+---
 
 ## Qt
 
