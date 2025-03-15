@@ -2010,7 +2010,11 @@ pid_t wait(int *status);
 
 父进程可以通过调用wait或waitpid得到它的退出状态同时彻底清除掉这个进程。
 
-wait() 和 waitpid() 函数的功能一样，区别在于，wait() 函数会阻塞，waitpid() 可以设置不阻塞，waitpid() 还可以指定等待哪个子进程结束。
+wait() 和 waitpid() 函数的功能一样，区别在于，
+
+​		**wait() 函数会阻塞，**
+
+​		**waitpid() 可以设置不阻塞**，waitpid() 还可以指定等待哪个子进程结束。
 
 注意：一次wait或waitpid调用只能清理一个子进程，清理多个子进程应使用循环。
 
