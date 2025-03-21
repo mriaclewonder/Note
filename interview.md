@@ -6087,6 +6087,55 @@ Rectangle {
 - **静态库**：适合独立分发和对性能要求高的场景。
 - **动态库**：适合代码共享和频繁更新的场景。
 
+
+
+### **线程和进程**
+
+
+
+### IO多路复用
+
+#### **阻塞、非阻塞、同步、异步 I/O 的概念**
+
+![image-20250320174137234](D:/Code/TYPORA/Note/interview.assets/image-20250320174137234.png)
+
+####  **epoll**
+
+#####  LT ET
+
+- 水平触发模式，一个事件只要有，就会一直触发
+- 边缘触发模式，只有一个事件从无到有才会触发
+
+#### **select**
+
+#### 文件描述符
+
+- 用来`监听`的 只有 1 个
+- 用来`通信`的 有 N 个	
+
+select参数是`传入传出参数`
+
+```c
+struct timeval{
+  time_t tv_sec;
+  suseconds_t tv_usec;
+};
+
+select(int nfds, fd_set * readfds,fd_set * writefds,fd_set * execptionfds,struct timeval* timeout);
+```
+
+ndfs 是三个集合中`最大的文件描述符加 1`
+
+### **并发**，**并行**
+
+`并发(concurrency)：`指在同一时刻只能有一条指令执行，但多个进程指令被快速的轮换执行，使得在宏观上具有多个进程同时执行的效果，但在微观上并不是同时执行的，只是把时间分成若干段，使多个进程快速交替的执行。这就好像两个人用同一把铁锨，轮流挖坑，一小时后，两个人各挖一个小一点的坑，要想挖两个大一点得坑，一定会用两个小时。
+
+
+
+`并行(parallel)：`指在同一时刻，有多条指令在多个处理器上同时执行。就好像两个人各拿一把铁锨在挖坑，一小时后，每人一个大坑。所以无论从微观还是从宏观来看，二者都是一起执行的。
+
+
+
 ## 设计模式
 
 
@@ -9731,15 +9780,165 @@ lst.sort();
 
 ## Http
 
+### **• HTTP请求和响应的结构是什么？**
 
+• 请求报文：
+
+ 		• 请求行：包含请求方法、URI和HTTP版本。
+
+​		• 请求头：包含客户端信息、资源请求的附加信息等。
+
+​		• 请求体：发送给服务器的数据。
+
+• 响应报文：
+
+​		• 响应行：包含HTTP版本、状态码和状态描述（如  HTTP/1.1 200 OK  ）
+
+​		• 响应头：包含服务器信息、资源信息等。
+
+​		• 响应体：服务器返回的数据
+
+### GET POST
+
+1. **什么是GET请求？什么是POST请求？**
+   - **GET请求**：是向指定资源获取数据的请求方法。它会将请求参数附加在URL后面，以“?”分隔，参数长度有限制（一般为2048字符），安全性较低，通常用于获取数据。
+   - **POST请求**：是向指定资源提交数据进行处理的请求方法。它将请求参数放在请求体中，对参数长度没有限制，安全性相对较高，通常用于提交数据。
 
 ## TCP/IP
 
+### **三次握手**
 
+​		客户端发送SYN请求建立连接，
+
+​		服务器回复SYN-ACK，
+
+​		客户端再发送ACK确认，完成连接建立。
+
+### **四次挥手**
+
+​	 	客户端发送FIN请求断开连接，
+
+​		服务器回复ACK确认，然后服务器发送FIN请求断开连接，
+
+​		客户端回复ACK确认，完成连接断开。
+
+![img](D:/Code/TYPORA/Note/interview.assets/cde5abc729f1b1682b138cd49dfa00a9.jpg) 　　　　![img](D:/Code/TYPORA/Note/interview.assets/1fea5a0ead5613eb59f91b3807b95561.jpg) 　　　
+
+### **等待的时间为什么是2MSL呢？**
+
+处于TIME_WAIT状态的主动断开方，在等待完成2MSL的时间后，才真正关闭连接通道，其等待的时间为什么是2MSL呢？ 2MSL翻译过来就是两倍的MSL。MSL全称为Maximum Segment Lifetime，指的是一个TCP报文片段在网络中最大的存活时间，具体来说，2MSL对应于一次消息的来回（一个发送和一个回复）所需的最大时间。如果直到2MSL，主动断开方都没有再一次收到对方的报文（如FIN报文)，则可以推断ACK已经被对方成功接收，此时，主动断开方将最终结束自己的TCP连接。所以，TCP的TIME_WAIT状态也称为2MSL等待状态。
 
 ## 数据结构
 
 
+
+## **Reactor （非阻塞同步网络模式）**
+
+理解为：`来了事件操作系统通知应用进程，让应用进程来处理`
+
+Reactor 这里的反应指的是「**对事件反应**」，也就是**来了一个事件，Reactor 就有相对应的反应/响应**。
+
+Reactor 模式主要由 Reactor 和处理资源池这两个核心部分组成，它俩负责的事情如下：
+
+- Reactor 负责监听和分发事件，事件分为连接事件和读写事件
+- 处理资源池 负责处理业务逻辑 如 read->业务逻辑->write
+
+主要分为四个：
+
+- 单 Reactor 单进程/线程
+- 单 Reactor 多进程/线程
+- 多 Reactor 单进程/线程 （基本不用）
+- 多 Reactor 多进程/线程
+
+### **单 Reactor 单进程/线程：**
+
+**单 Reactor 单进程**
+
+****
+
+![img](D:/Code/TYPORA/Note/interview.assets/%E5%8D%95Reactor%E5%8D%95%E8%BF%9B%E7%A8%8B.png)
+
+**对象**：
+
+1.Reactor 对象：
+
+​	负责监听和分发事件
+
+2.Acceptor 对象:
+
+​	获取连接
+
+3.Handler 对象
+
+​	处理业务
+
+**详细过程**：
+
+>Reactor 对象通过select (IO多路复用接口) 监听事件，通过 dispatch 分发事件,怎么分发取决于返回的事件类型
+
+>如果是连接请求，就由Acceptor 对象来accept来处理请求，在生成一个Handler对象来处理后续的响应事件
+
+>如果不是连接请求，就由Handler对象来处理请求
+
+**缺点**：
+
+- ​	因为只有一个进程，无法充分利用CPU的多核性能
+- ​	Handler对象在处理业务逻辑的时候，整个进程无法处理其他连接的事件，耗时较长
+
+### **单 Reactor 多进程/线程：**
+
+**单 Reactor 多线程**
+
+<img src="D:/Code/TYPORA/Note/interview.assets/%E5%8D%95Reactor%E5%A4%9A%E7%BA%BF%E7%A8%8B.png" alt="img" style="zoom: 50%;" />
+
+**详细过程**：
+
+>Reactor 对象通过select (IO多路复用接口) 监听事件，通过 dispatch 分发事件,怎么分发取决于返回的事件类型
+
+>如果是连接请求，就由Acceptor 对象来accept来处理请求，在生成一个Handler对象来处理后续的响应事件
+
+>如果不是连接请求，就由Handler对象来处理请求
+
+>Handler不在处理数据的业务逻辑，通过read读到数据，交给子线程Processor对象去处理业务
+
+>Processor对象处理完业务逻辑后，将结果返回给Handler对象，通过send将响应结果发送给client
+
+**优点**：
+
+- ​	单 Reator 多线程的方案优势在于**能够充分利用多核 CPU 的性能**
+
+**缺点**：
+
+- ​	多线程涉及共享数据的竟争
+- ​	因为只有一个Reactor对象来承担所有的监听和响应，而且只在主线程响应，**在面对瞬间高并发的场景时，容易成为性能的瓶颈的地方**
+
+### **多 Reactor 多进程/线程：**
+
+<img src="https://cdn.xiaolincoding.com/gh/xiaolincoder/ImageHost4@main/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Reactor/%E4%B8%BB%E4%BB%8EReactor%E5%A4%9A%E7%BA%BF%E7%A8%8B.png" alt="img" style="zoom:50%;" />
+
+**详细过程**：
+
+>主线程中的 MainReactor 对象通过 select 监控连接建立事件，收到事件后通过 Acceptor 对象中的accept 获取连接，将新的连接分配给某个子线程；
+
+>子线程中的 SubReactor 对象将 MainReactor 对象分配的连接加入select 继续进行监听，并创建一个Handler 用于处理连接的响应事件。
+
+>如果有新的事件发生时，SubReactor 对象会调用当前连接对应的 Handler 对象来进行响应。
+
+>Handler 对象通过 read -> 业务处理 -> send 的流程来完成完整的业务流程。
+
+
+
+## **Proactor模式**
+
+
+
+![image-20250320174337622](D:/Code/TYPORA/Note/interview.assets/image-20250320174337622.png)
+
+![img](D:/Code/TYPORA/Note/interview.assets/Proactor.png)
+
+**工作流程：**
+
+![image-20250320174532484](D:/Code/TYPORA/Note/interview.assets/image-20250320174532484.png)
 
 
 
