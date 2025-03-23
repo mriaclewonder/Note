@@ -2313,10 +2313,8 @@ int main(void)
 		memset(buf,0,SIZE);
 		printf("子进程读取管道内容...\n");
 		
-		ret = fcntl(fd[0], F_GETFL);
-		ret |= O_NONBLOCK;
-		
-		fcntl(fd[0], F_SETFL, ret); 		
+
+        
 		
 		ret = read(fd[0],buf,SIZE);
 		
