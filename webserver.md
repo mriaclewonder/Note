@@ -555,7 +555,7 @@ if (1 == m_actor_model) { // Reactor 模式
 - **Proactor 模拟**：主线程同步完成I/O，工作线程仅处理业务，实现高效分工。  
 - **代码价值**：通过线程池和任务队列，平衡I/O与CPU密集型操作，提升并发性能。
 
-### **如何用同步 I/O 模拟 Proactor？**
+### 如何用同步 I/O 模拟 Proactor？
 
 #### **代码中的模拟逻辑**
 
@@ -763,5 +763,200 @@ epoll_ctl(epoll_fd, EPOLL_CTL_ADD, sockfd, &ev);
 
 // 处理完事件后需重新注册
 epoll_ctl(epoll_fd, EPOLL_CTL_MOD, sockfd, &ev);  // 重新激活事件
+```
+
+###  作用
+
+EPOLLRDHUP
+
+当 `epoll_wait()` 监听的 `fd`（套接字）触发 `EPOLLRDHUP` 事件时，意味着：
+
+- **对端调用了 `shutdown(fd, SHUT_WR)` 或 `close(fd)`**，即对方不再发送数据了。
+- **本端仍然可以继续发送数据**，但对方不会再发送数据过来了。
+
+相当于 **对方关闭了写入方向（write shutdown），但你的 socket 仍然可以写数据**。
+
+
+
+### **`SIGALRM`**定时器信号
+
+#### **功能**
+
+- **触发条件**：由 `alarm()` 或 `setitimer()` 等函数设置的定时器超时触发。
+- **默认行为**：终止进程（Terminate）。
+- 常见用途
+  - 实现超时机制（如网络请求超时）。
+  - 周期性任务调度（如心跳检测）。
+  - 资源使用时间限制（如防止代码死循环）。
+
+>定时器处理非活动连接
+>
+>===============
+>
+>由于非活跃连接占用了连接资源，严重影响服务器的性能，通过实现一个服务器定时器，处理这种非活跃连接，释放连接资源。利用alarm函数周期性地触发SIGALRM信号,该信号的信号处理函数利用管道通知主循环执行定时器链表上的定时任务.
+>
+>\> * 统一事件源
+>
+>\> * 基于升序链表的定时器
+>
+>\> * 处理非活动连接
+
+## http
+
+### Http 请求的头部部分
+
+ HTTP 请求的头部部分如下:
+
+```c
+GET /index.html HTTP/1.1
+Host: www.example.com
+Connection: keep-alive
+Content-length: 123
+```
+
+### 函数
+
+**strspn** 函数用于检索字符串中连续匹配字符集的长度。它返回字符串 *str1* 中从开头连续包含在 *str2* 中的字符数量
+
+strchr() 用于查找字符串中的一个字符，并返回该字符在字符串中第一次出现的位置。
+
+**atol（将字符串转换成长整型数）** 
+
+
+
+### **何时会触发 `EAGAIN`？**
+
+`EAGAIN` 是 Linux/Unix 系统编程中一个常见的错误码，尤其在非阻塞 I/O 操作中频繁出现。它的核心含义是：**当前操作无法立即完成，但稍后重试可能成功**。以下是深入解析：
+
+在非阻塞（non-blocking）文件描述符上执行 I/O 操作时：
+
+- **读操作**：内核缓冲区无数据可读，立即返回 `EAGAIN`。
+- **写操作**：内核缓冲区已满，无法写入更多数据，立即返回 `EAGAIN`。
+
+此时程序不应阻塞等待，而是应该通过事件驱动（如 `epoll`）监听文件描述符状态，待其就绪后再重试。
+
+
+
+### `struct iovec` 
+
+`struct iovec` 是 Linux/Unix 系统中用于 **分散-聚集 I/O（Scatter-Gather I/O）** 的核心数据结构，允许程序通过单个系统调用（如 `writev` 或 `readv`）高效处理多个非连续内存缓冲区的读写操作。它在高性能网络编程（如 HTTP 服务器）和文件 I/O 优化中广泛应用。
+
+#### 核心作用
+
+通过 `struct iovec` 数组，可以将多个不连续的内存块（如 HTTP 响应头和文件内容）组合成一个逻辑连续的流，**减少系统调用次数**，提升 I/O 性能。
+
+#### 示例场景
+
+HTTP 响应发送
+
+- `iov[0]`：存储 HTTP 头部（如 `"HTTP/1.1 200 OK\r\nContent-Length: 1000\r\n\r\n"`）。
+- `iov[1]`：指向内存映射的文件内容（如 `mmap` 映射的 HTML 文件）。
+
+- 调用 `writev(fd, iov, 2)` 一次性发送头和文件内容，避免两次 `write` 调用。
+
+------
+
+####  **关键系统调用**
+
+- **`writev(int fd, const struct iovec *iov, int iovcnt)`**
+   将 `iov` 数组中的多个缓冲区按顺序写入文件描述符 `fd`。
+- **`readv(int fd, const struct iovec *iov, int iovcnt)`**
+   从文件描述符 `fd` 读取数据到 `iov` 数组中的多个缓冲区。
+
+#### 总结
+
+`struct iovec` + `writev` 是高性能服务器开发中的“黄金组合”，通过减少系统调用次数和内存拷贝，显著提升 I/O 效率。在你的 HTTP 服务器代码中，它完美实现了响应头和文件内容的高效整合发送，是 Reactor 模式中非阻塞 I/O 的关键优化手段。
+
+
+
+### **状态机设计思想**
+
+- **主状态机**：在 `process_read()` 中通过 `m_check_state` 控制解析阶段，对应HTTP协议的请求行、请求头和内容体。
+- **从状态机**：通过 `parse_line()` 解析单行数据，确保主状态机处理的数据是完整的行。
+- **协作**：主状态机依赖从状态机提供完整的行数据，逐步推进解析流程，直到完成整个HTTP请求的解析
+
+1. **分阶段处理**：
+   - 将HTTP请求拆解为**请求行 → 请求头 → 内容体**三个阶段，每个阶段对应一个状态。
+   - 每个状态专注处理特定部分，代码结构清晰。
+2. **非阻塞处理**：
+   - 适应ET/LT模式，当数据不完整时（如`LINE_OPEN`），保存当前状态，等待下次触发读事件继续解析。
+3. **错误处理**：
+   - 每个解析函数返回错误码（如`BAD_REQUEST`），状态机提前终止并返回错误响应。
+
+
+
+
+
+## webserver
+
+###  为什么这样实现能够区分模式
+
+代码通过检测全局或成员变量 `m_actormodel` 的值来选择执行不同的逻辑分支，从而实现两种模式的区分：
+
+- **Reactor 模式（m_actormodel == 1）**
+  - IO 事件（如读事件）只是触发一个信号，实际的读操作和数据处理被延迟到工作线程中。
+  - 使用 **improv** 来等待工作线程完成处理。
+  - 主线程主要负责事件分发、定时器调整和等待状态同步。
+- **Proactor 模式（m_actormodel != 1）**
+  - IO 操作（如读取数据）在事件触发时就已经完成，数据已经被操作系统异步读入。
+  - 主线程直接检测读操作结果，成功后将任务提交到线程池处理，失败则直接处理定时器。
+  - 这种模式下，异步 IO 的“主动”部分已经完成，不需要等待工作线程设置标志位。
+
+总结来说，通过 `m_actormodel` 的不同值，代码明确区分了两种模式：
+
+- 在 **Reactor 模式** 下，任务的实际执行由工作线程异步完成，主线程需等待状态同步（由 **improv** 控制）。
+- 在 **Proactor 模式** 下，IO 数据的读取已经异步完成，主线程只负责分发任务给线程
+
+```cpp
+void WebServer::dealwithread(int sockfd)
+{
+    util_timer *timer = users_timer[sockfd].timer;
+
+    //reactor
+    if (1 == m_actormodel)
+    {
+        if (timer)
+        {
+            adjust_timer(timer);
+        }
+
+        //若监测到读事件，将该事件放入请求队列
+        m_pool->append(users + sockfd, 0);
+
+        while (true)
+        {
+            if (1 == users[sockfd].improv)
+            {
+                if (1 == users[sockfd].timer_flag)
+                {
+                    deal_timer(timer, sockfd);
+                    users[sockfd].timer_flag = 0;
+                }
+                users[sockfd].improv = 0;
+                break;
+            }
+        }
+    }
+    else
+    {
+        //proactor
+        if (users[sockfd].read_once())
+        {
+            LOG_INFO("deal with the client(%s)", inet_ntoa(users[sockfd].get_address()->sin_addr));
+
+            //若监测到读事件，将该事件放入请求队列
+            m_pool->append_p(users + sockfd);
+
+            if (timer)
+            {
+                adjust_timer(timer);
+            }
+        }
+        else
+        {
+            deal_timer(timer, sockfd);
+        }
+    }
+}
 ```
 
