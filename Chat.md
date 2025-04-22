@@ -4,7 +4,7 @@
 
 ## 客户端传包
 
-![image-20250401183639009](D:/Code/TYPORA/Note/Chat.assets/image-20250401183639009.png)
+![image-20250401183639009](Chat.assets/image-20250401183639009.png)
 
 ## 什么是大端，什么是小端
 

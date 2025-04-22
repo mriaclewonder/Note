@@ -6278,19 +6278,19 @@ Qt 的 MV（模型/视图）架构是一种用于构建高性能、灵活用户�
 
 >客户端在向服务器发送http请求的时候，也发送了一个 emit self->sig_http_finish(req_id, res, ErrorCodes::SUCCESS,mod);信号，然后触发httpmgr的槽函数，槽函数在分辨是哪个模块，发送出对应模块的信号，对应模块接受对应的信号，处理响应的槽函数，
 >
->![image-20250412150201610](D:/Code/TYPORA/Note/interview.assets/image-20250412150201610.png)
+>![image-20250412150201610](interview.assets/image-20250412150201610.png)
 
 >收到对应的reply就会触发lamada表达式里面的发送信号
 >
-><img src="D:/Code/TYPORA/Note/interview.assets/image-20250412150553296.png" alt="image-20250412150553296"  />
+><img src="interview.assets/image-20250412150553296.png" alt="image-20250412150553296"  />
 
 >当http请求的完成信号发出，就会触发对应的槽函数，识别对应的模块，以便响应对应模块的
 >
->![image-20250412150726504](D:/Code/TYPORA/Note/interview.assets/image-20250412150726504.png)
+>![image-20250412150726504](interview.assets/image-20250412150726504.png)
 
 >当httpMgr的信号发出，就会触发对应的槽函数处理
 >
->![image-20250412150819640](D:/Code/TYPORA/Note/interview.assets/image-20250412150819640.png)
+>![image-20250412150819640](interview.assets/image-20250412150819640.png)
 
 
 
@@ -6593,9 +6593,9 @@ Qt 的 MV（模型/视图）架构是一种用于构建高性能、灵活用户�
 
 
 
-![image-20250421224348641](D:/Code/TYPORA/Note/interview.assets/image-20250421224348641.png)
+![image-20250421224348641](interview.assets/image-20250421224348641.png)
 
-![image-20250421225403697](D:/Code/TYPORA/Note/interview.assets/image-20250421225403697.png)
+![image-20250421225403697](interview.assets/image-20250421225403697.png)
 
 
 
@@ -6605,15 +6605,15 @@ Qt 的 MV（模型/视图）架构是一种用于构建高性能、灵活用户�
 
 
 
-![image-20250421224834007](D:/Code/TYPORA/Note/interview.assets/image-20250421224834007.png)
+![image-20250421224834007](interview.assets/image-20250421224834007.png)
 
 
 
-![image-20250421225021170](D:/Code/TYPORA/Note/interview.assets/image-20250421225021170.png)
+![image-20250421225021170](interview.assets/image-20250421225021170.png)
 
 
 
-![image-20250421225202733](D:/Code/TYPORA/Note/interview.assets/image-20250421225202733.png)
+![image-20250421225202733](interview.assets/image-20250421225202733.png)
 
 
 
@@ -6681,7 +6681,7 @@ Qt 的 MV（模型/视图）架构是一种用于构建高性能、灵活用户�
 
 #### **阻塞、非阻塞、同步、异步 I/O 的概念**
 
-![image-20250320174137234](D:/Code/TYPORA/Note/interview.assets/image-20250320174137234.png)
+![image-20250320174137234](interview.assets/image-20250320174137234.png)
 
 ####  **epoll**
 
@@ -10005,7 +10005,7 @@ int main() {
 
 ### 容器分类
 
-![image-20250313150019604](D:/Code/TYPORA/Note/interview.assets/image-20250313150019604.png)
+![image-20250313150019604](interview.assets/image-20250313150019604.png)
 
 
 
@@ -10490,9 +10490,9 @@ lst.sort();
 
 ​		客户端回复ACK确认，完成连接断开。
 
-![img](D:/Code/TYPORA/Note/interview.assets/cde5abc729f1b1682b138cd49dfa00a9.jpg) 　　　　
+![img](interview.assets/cde5abc729f1b1682b138cd49dfa00a9.jpg) 　　　　
 
-![img](D:/Code/TYPORA/Note/interview.assets/1fea5a0ead5613eb59f91b3807b95561.jpg)
+![img](interview.assets/1fea5a0ead5613eb59f91b3807b95561.jpg)
 
 
 
@@ -10786,7 +10786,7 @@ Reactor 模式主要由 Reactor 和处理资源池这两个核心部分组成，
 
 ****
 
-![img](D:/Code/TYPORA/Note/interview.assets/%E5%8D%95Reactor%E5%8D%95%E8%BF%9B%E7%A8%8B.png)
+![img](interview.assets/%E5%8D%95Reactor%E5%8D%95%E8%BF%9B%E7%A8%8B.png)
 
 **对象**：
 
@@ -10819,7 +10819,7 @@ Reactor 模式主要由 Reactor 和处理资源池这两个核心部分组成，
 
 **单 Reactor 多线程**
 
-<img src="D:/Code/TYPORA/Note/interview.assets/%E5%8D%95Reactor%E5%A4%9A%E7%BA%BF%E7%A8%8B.png" alt="img" style="zoom: 50%;" />
+<img src="interview.assets/%E5%8D%95Reactor%E5%A4%9A%E7%BA%BF%E7%A8%8B.png" alt="img" style="zoom: 50%;" />
 
 **详细过程**：
 
@@ -10860,13 +10860,13 @@ Reactor 模式主要由 Reactor 和处理资源池这两个核心部分组成，
 
 ## **Proactor模式**
 
-![image-20250320174337622](D:/Code/TYPORA/Note/interview.assets/image-20250320174337622.png)
+![image-20250320174337622](interview.assets/image-20250320174337622.png)
 
-![img](D:/Code/TYPORA/Note/interview.assets/Proactor.png)
+![img](interview.assets/Proactor.png)
 
 **工作流程：**
 
-![image-20250320174532484](D:/Code/TYPORA/Note/interview.assets/image-20250320174532484.png)
+![image-20250320174532484](interview.assets/image-20250320174532484.png)
 
 
 
