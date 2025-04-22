@@ -130,4 +130,4 @@ set_target_properties(main2 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR})
 
 ### 把输出程序输出到特定的目录中
 
-![image-20250422155417513](D:/Code/TYPORA/Note/CMake.assets/image-20250422155417513.png)
+![image-20250422165826950](D:/Code/TYPORA/Note/CMake.assets/image-20250422165826950.png)
