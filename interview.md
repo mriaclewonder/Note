@@ -6033,6 +6033,590 @@ Rectangle {
 
 >信号>=槽函数
 
+### Qt多线程编程
+
+**继承 QThread：**
+ 通过继承 QThread 并重写 run() 方法，在 run() 内编写线程执行的代码。
+
+- **将工作对象移到子线程：**
+   创建一个工作类（继承自 QObject），将其 moveToThread 到一个 QThread 对象中，然后利用信号槽机制实现线程启动、任务执行及退出等操作。这种方式可以更好地利用 Qt 的事件循环和信号槽通信。
+- **使用 QtConcurrent：**
+   对于简单的并行计算任务，QtConcurrent 提供了一种无需手动管理线程的简便方法。
+
+下面分别给出示例代码：
+
+------
+
+#### 继承 QThread
+
+这种方法通过重写 QThread 的 run() 方法定义线程任务。
+
+```cpp
+#include <QCoreApplication>
+#include <QThread>
+#include <QDebug>
+
+class WorkerThread : public QThread
+{
+public:
+    WorkerThread(QObject *parent = nullptr) : QThread(parent) {}
+
+protected:
+    void run() override {
+        // 在子线程中执行任务，这里简单模拟执行 5 次任务，每次间隔 1 秒
+        for (int i = 0; i < 5; ++i) {
+            qDebug() << "WorkerThread running in thread:" << QThread::currentThreadId();
+            QThread::sleep(1);
+        }
+    }
+};
+
+int main(int argc, char *argv[])
+{
+    QCoreApplication app(argc, argv);
+
+    WorkerThread thread;
+    thread.start();  // 启动线程
+    thread.wait();   // 阻塞等待线程结束
+
+    return app.exec();
+}
+```
+
+> **说明：**
+>  在上述代码中，我们通过继承 QThread 并重写 run()，定义了一个简单的任务，在循环中每秒输出一次当前线程 ID，然后通过 start() 启动线程，使用 wait() 等待线程结束。
+
+------
+
+#### 将工作对象移到子线程
+
+这种方式中，我们将一个工作对象（Worker）移到 QThread 中，通过信号槽实现线程内任务调度。
+
+```cpp
+#include <QCoreApplication>
+#include <QThread>
+#include <QObject>
+#include <QDebug>
+
+class Worker : public QObject
+{
+    Q_OBJECT
+public slots:
+    void doWork() {
+        // 在子线程中执行任务，模拟执行 5 次，每次间隔 1 秒
+        for (int i = 0; i < 5; ++i) {
+            qDebug() << "Worker is processing in thread:" << QThread::currentThreadId();
+            QThread::sleep(1);
+        }
+        emit workFinished();
+    }
+signals:
+    void workFinished();
+};
+
+int main(int argc, char *argv[])
+{
+    QCoreApplication app(argc, argv);
+
+    QThread *thread = new QThread;
+    Worker *worker = new Worker;
+
+    // 将 worker 移动到新线程中
+    worker->moveToThread(thread);
+
+    QObject::connect(thread, &QThread::started, worker, &Worker::doWork);
+    QObject::connect(worker, &Worker::workFinished, thread, &QThread::quit);
+    QObject::connect(worker, &Worker::workFinished, worker, &QObject::deleteLater);
+    QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+
+    thread->start();
+
+    return app.exec();
+}
+
+#include "main.moc"
+```
+
+> **说明：**
+>
+> - 首先创建一个 Worker 对象和一个 QThread 对象，并使用 worker->moveToThread(thread) 将 Worker 移到子线程。
+> - 当线程启动（QThread::started）后，调用 Worker 的 doWork() 方法执行任务。
+> - 任务完成后，发送 workFinished 信号，退出线程，并通过 deleteLater() 进行内存回收。
+
+------
+
+#### 使用 QtConcurrent
+
+对于简单的并行计算任务，可以使用 QtConcurrent，无需手动管理线程。
+
+```cpp
+#include <QCoreApplication>
+#include <QtConcurrent>
+#include <QFuture>
+#include <QFutureWatcher>
+#include <QDebug>
+#include <QThread>
+
+// 模拟一个耗时计算任务
+int longTask(int value)
+{
+    QThread::sleep(2); // 模拟耗时操作
+    return value * value;
+}
+
+int main(int argc, char *argv[])
+{
+    QCoreApplication app(argc, argv);
+
+    // 使用 QtConcurrent::run 执行 longTask 函数
+    QFuture<int> future = QtConcurrent::run(longTask, 10);
+
+    QFutureWatcher<int> watcher;
+    QObject::connect(&watcher, &QFutureWatcher<int>::finished, [&]() {
+        // 当任务完成后获取结果
+        qDebug() << "Result:" << future.result();
+        app.quit();
+    });
+
+    watcher.setFuture(future);
+
+    return app.exec();
+}
+```
+
+> **说明：**
+>
+> - QtConcurrent::run 会在后台线程中执行 longTask 函数，并返回 QFuture 对象。
+> - 利用 QFutureWatcher 监听任务状态，任务完成后取出结果并退出应用。
+
+------
+
+#### 总结
+
+- **继承 QThread**：适合简单的线程任务，但在设计上不推荐将业务逻辑放到 QThread 子类中。
+- **对象移入子线程**：通过 moveToThread 将工作对象移入子线程，结合信号槽实现线程间通信，更符合 Qt 的事件模型。
+- **QtConcurrent**：适用于无需精细控制线程的场景，可以快速实现并行计算。
+
+
+
+### Qt的mv架构是什么
+
+Qt 的 MV（模型/视图）架构是一种用于构建高性能、灵活用户界面的设计模式，它将数据的存储和管理与数据的显示分离开来，并通过委托机制进一步定制显示和编辑方式。对于需要处理大量数据、实现复杂数据交互或需要在多个视图中共享同一数据时，这种架构能够提供很大的优势。
+
+### qlistwidget实现的聊天列表人数过多该怎么解决
+
+####  使用 Model/View 架构替代 QListWidget
+
+**说明：**
+
+- **QListWidget** 实际上是 QListView 的一个便利封装，但内部封装了一个固定的模型。当数据量变大时，所有项都加载到内存中，更新和刷新都会比较耗资源。
+- 推荐**改用 QListView 配合自定义数据模型**（继承 QAbstractListModel 或使用 QStandardItemModel），实现懒加载、数据虚拟化和高效刷新。这样可以避免一次性加载所有数据，可以根据用户的滚动位置动态加载数据，提高响应速度和内存利用率。
+
+**实现建议：**
+
+- 定制 QAbstractListModel，重写数据访问函数（如 data()、rowCount() 等）。
+- 通过 QListView 的 update() 函数或者滚动条事件，当用户滚动到接近列表底部时再加载更多数据，实现分页加载。
+
+####  数据分页加载和虚拟化
+
+**说明：**
+
+- 对于聊天列表这种可能需要实时更新和滚动的大数据量场景，可以设计为分页加载，只有当前可见区域的数据项被加载或绘制。
+- 可以使用“无限滚动”技术，提前预加载用户即将看到的部分，减少一次性加载的开销。
+
+**实现建议：**
+
+- 在数据存储层面，设计接口支持分页请求或分批加载聊天记录。
+- 当用户滚动到接近底部时，通过连接滚动条的信号，触发加载下一页数据并追加到模型中。
+
+#### 优化绘制和更新
+
+**说明：**
+
+- 过多的界面项可能导致重绘开销较大。
+- 可以利用 QListView 的视图更新策略，比如仅更新可见项、利用缓存等。
+
+**实现建议：**
+
+- 开启抗锯齿和缓存机制，确保 QPainter 的绘制在性能和显示效果之间取得平衡。
+- 针对重复调用绘制函数的情况，考虑对不变的部分进行缓存，减少不必要的重绘。
+
+####  使用异步加载和多线程
+
+**说明：**
+
+- 如果聊天列表数据来自网络请求或者数据库查询，可以将数据加载放到后台线程中，避免阻塞 UI 线程。
+
+**实现建议：**
+
+- 利用 Qt 的 QThread 或 QtConcurrent 等多线程机制，在后台加载数据，加载完成后通知主线程更新模型。
+- 确保线程安全和 UI 更新的同步问题，可以使用信号和槽机制来传递数据更新信息。
+
+#### 限制历史记录的展示数量
+
+**说明：**
+
+- 对于实时聊天应用，可以考虑只展示最近的聊天记录，而将历史聊天记录归档到其他界面或通过滚动加载时再动态添加到列表中。
+- 这种方法既能提高应用性能，又能使用户界面更简洁。
+
+**实现建议：**
+
+- 设计业务逻辑将历史数据和实时数据分开管理，通过用户操作加载更多历史数据。
+- 在模型中只维护一定数量的项，必要时移除不常用的聊天记录，降低内存占用。
+
+
+
+- **切换模型/视图架构**：优先考虑使用 QListView 与自定义数据模型，实现数据虚拟化和懒加载。
+- **分页加载与虚拟化**：通过分页或无限滚动来降低一次性加载的数据量。
+- **优化绘制**：缓存和局部更新以降低重绘开销。
+- **异步加载**：利用多线程异步加载数据避免阻塞 UI 线程。
+- **归档历史记录**：只展示部分数据，并预留方式加载更多历史数据。
+
+
+
+### 怎么确定服务器的回包就是对应请求的回包？
+
+>客户端在向服务器发送http请求的时候，也发送了一个 emit self->sig_http_finish(req_id, res, ErrorCodes::SUCCESS,mod);信号，然后触发httpmgr的槽函数，槽函数在分辨是哪个模块，发送出对应模块的信号，对应模块接受对应的信号，处理响应的槽函数，
+>
+>![image-20250412150201610](D:/Code/TYPORA/Note/interview.assets/image-20250412150201610.png)
+
+>收到对应的reply就会触发lamada表达式里面的发送信号
+>
+><img src="D:/Code/TYPORA/Note/interview.assets/image-20250412150553296.png" alt="image-20250412150553296"  />
+
+>当http请求的完成信号发出，就会触发对应的槽函数，识别对应的模块，以便响应对应模块的
+>
+>![image-20250412150726504](D:/Code/TYPORA/Note/interview.assets/image-20250412150726504.png)
+
+>当httpMgr的信号发出，就会触发对应的槽函数处理
+>
+>![image-20250412150819640](D:/Code/TYPORA/Note/interview.assets/image-20250412150819640.png)
+
+
+
+####  请求发送
+
+- **附带请求信息：**
+   当你调用 `HttpMgr::GetInstance()->PostHttpReq(...)` 时，会传入一个 `req_id` 和 `mod` 参数。这两个值在调用时就确定了，通常用于标识此请求属于哪个业务模块（例如注册、登录等），以及在客户端内部用来匹配响应的唯一性。
+
+- **构造请求与响应绑定：**
+   在 `PostHttpReq()` 函数中，发送请求的过程中，没有直接将请求 ID 传给服务器（因为 HTTP 协议本身是基于请求-响应模型的），而是在发送请求后， 当响应（即 QNetworkReply）完成时，会通过一个 lambda（回调）函数获取响应内容。
+   这时，通过调用：
+
+  ```cpp
+  emit self->sig_http_finish(req_id, res, ErrorCodes::SUCCESS, mod);
+  ```
+
+  将请求 ID、响应字符串、错误码和模块标识封装到信号中发送出去。
+
+#### 响应接收与分发
+
+- **槽函数接收信号：**
+   `HttpMgr` 对象连接了其自己的信号 `sig_http_finish` 和槽函数 `slot_http_finish`。当信号发出后，`slot_http_finish` 被触发，并收到上述参数。
+
+- **模块标识分发：**
+   在 `slot_http_finish` 内部，根据传入的模块标识（例如 `Modules::REGISTERMOD`）判断这是哪个模块的请求响应：
+
+  ```cpp
+  if(mod == Modules::REGISTERMOD){
+      emit sig_reg_mod_finish(id, res, err);
+  }
+  // 同理还有其他模块的判断，比如 RESETMOD、LOGINMOD 等
+  ```
+
+  也就是说，`slot_http_finish` 会再根据模块标识发出对应的信号（如 `sig_reg_mod_finish`），这些信号已由对应的界面或业务逻辑层连接到具体的响应处理槽函数。
+
+####  上层的处理
+
+- **注册对响应信号的监听：**
+   比如在 `RegisterDialog` 构造函数中，你连接了：
+
+  ```cpp
+  connect(HttpMgr::GetInstance().get(), &HttpMgr::sig_reg_mod_finish, this, &RegisterDialog::slot_reg_mod_finish);
+  ```
+
+  这样一来，当 `HttpMgr` 发出 `sig_reg_mod_finish` 信号时，`RegisterDialog` 的槽函数 `slot_reg_mod_finish` 会被调用，处理注册模块的响应。
+
+- **确定响应对应关系：**
+   因为每个请求发出时都带上了相应的 `req_id` 和 `mod`， 当响应返回时客户端依靠这两个信息“知道”响应属于哪个请求和哪个模块，从而上层界面或业务逻辑能够调用正确的处理方法。
+
+#### 总结
+
+- 客户端在发送 HTTP 请求时，内部给请求分配了一个唯一的 `req_id` 和一个模块标识 `mod`（例如注册模块）。
+- 当网络响应返回后，`HttpMgr` 的 lambda 回调会触发，解析响应，并通过 `emit self->sig_http_finish(req_id, res, ErrorCodes::SUCCESS, mod);` 发出一个信号。
+- `HttpMgr` 内部的槽函数 `slot_http_finish` 根据模块标识判断应将响应转发给哪个模块，然后发出相应的信号（如 `sig_reg_mod_finish`），而上层的注册界面正好连接了这个信号，并在相应槽函数中处理响应。
+
+因此，是通过这种信号发射、槽函数分发的机制，让上层能够知道“这个响应是针对哪个请求的”并调用对应的逻辑处理函数。
+
+
+
+## 怎么触发tcp请求
+
+下面按时序分成“发送流程”和“接收流程”两部分，详细列出每个函数的调用和信号（emit/slot）触发关系。
+
+------
+
+### 一、发送流程：从点击“登录”到向聊天服务器发起 TCP 连接并发送登录数据
+
+1. **用户点击“登录”按钮**
+
+   - 触发 `LoginDialog::on_login_btn_clicked()`
+
+   - 依次调用：
+
+     1. `checkUserValid()` —— 验证邮箱非空
+     2. `checkPwdValid()` —— 验证密码长度和字符合法性
+
+   - 校验通过后，调用：
+
+     ```cpp
+     HttpMgr::GetInstance()->PostHttpReq(
+         QUrl(gate_url_prefix + "/user_login"),
+         json_obj,                // 包含 email 和加密后的 passwd
+         ReqId::ID_LOGIN_USER,
+         Modules::LOGINMOD
+     );
+     ```
+
+2. **`HttpMgr::PostHttpReq()` 发起 HTTP 请求**
+
+   - 构造 `QNetworkRequest`，设置头部和请求体
+
+   - 调用 `_manager.post(request, data)` 得到 `QNetworkReply* reply`
+
+   - 连接信号：
+
+     ```cpp
+     connect(reply, &QNetworkReply::finished, [reply, self, req_id, mod](){
+         if (reply->error() != QNetworkReply::NoError) {
+             emit self->sig_http_finish(req_id, "", ErrorCodes::ERR_NETWORK, mod);
+         } else {
+             QString res = reply->readAll();
+             emit self->sig_http_finish(req_id, res, ErrorCodes::SUCCESS, mod);
+         }
+         reply->deleteLater();
+     });
+     ```
+
+3. **`HttpMgr` 转发模块信号**
+
+   - 构造函数中已连接：
+
+     ```cpp
+     connect(this, &HttpMgr::sig_http_finish, this, &HttpMgr::slot_http_finish);
+     ```
+
+   - `slot_http_finish` 根据 `mod == LOGINMOD`，又发射：
+
+     ```cpp
+     emit sig_login_mod_finish(id, res, err);
+     ```
+
+4. **`LoginDialog` 接收 HTTP 返回**
+
+   - 在构造函数中已连接：
+
+     ```cpp
+     connect(HttpMgr::GetInstance().get(),
+             &HttpMgr::sig_login_mod_finish,
+             this,
+             &LoginDialog::slot_login_mod_finish);
+     ```
+
+   - 调用 `slot_login_mod_finish(ReqId::ID_LOGIN_USER, res, ErrorCodes::SUCCESS)`，解析 JSON，然后调用：
+
+     ```cpp
+     _handlers[id](jsonDoc.object());
+     ```
+
+   - 这是在 `LoginDialog::initHttpHandlers()` 注册的回调，对应 `ID_LOGIN_USER`：
+
+     ```cpp
+     _handlers.insert(ReqId::ID_LOGIN_USER, [this](QJsonObject jsonObj){
+         // 从 jsonObj 中取出 uid, host, port, token
+         ServerInfo si{ jsonObj["uid"].toInt(),
+                        jsonObj["host"].toString(),
+                        jsonObj["port"].toString(),
+                        jsonObj["token"].toString() };
+         _uid = si.Uid;   _token = si.Token;
+         emit sig_connect_tcp(si);
+     });
+     ```
+
+5. **发起 TCP 连接**
+
+   - `LoginDialog` 中：
+
+     ```cpp
+     emit sig_connect_tcp(si);
+     ```
+
+   - 在构造函数中，已连接到：
+
+     ```cpp
+     connect(this, &LoginDialog::sig_connect_tcp,
+             TcpMgr::GetInstance().get(),
+             &TcpMgr::slot_tcp_connect);
+     ```
+
+   - 调用 `TcpMgr::slot_tcp_connect(ServerInfo si)`：
+
+     ```cpp
+     _host = si.Host;  _port = si.Port.toUInt();
+     _socket.connectToHost(_host, _port);
+     ```
+
+6. **TCP 连接成功**
+
+   - `QTcpSocket` 在握手完成后发射 `connected()` 信号
+
+   - `TcpMgr` 构造函数中连接：
+
+     ```cpp
+     connect(&_socket, &QTcpSocket::connected, [&](){
+         qDebug() << "Connected to server!";
+         emit sig_con_success(true);
+     });
+     ```
+
+   - `LoginDialog` 中注册：
+
+     ```cpp
+     connect(TcpMgr::GetInstance().get(),
+             &TcpMgr::sig_con_success,
+             this,
+             &LoginDialog::slot_tcp_con_finish);
+     ```
+
+   - 调用 `LoginDialog::slot_tcp_con_finish(bool bsuccess)`：
+
+     ```cpp
+     if (bsuccess) {
+         // 构造包含 uid 和 token 的 JSON
+         emit TcpMgr::GetInstance()->sig_send_data(
+             ReqId::ID_CHAT_LOGIN, jsonString);
+     } else { /* 连接失败逻辑 */ }
+     ```
+
+7. **发送聊天登录数据**
+
+   - `TcpMgr` 构造函数中连接：
+
+     ```cpp
+     connect(this, &TcpMgr::sig_send_data,
+             this, &TcpMgr::slot_send_data);
+     ```
+
+   - 调用 `TcpMgr::slot_send_data(ReqId reqId, QString data)`：
+
+     ```cpp
+     // 准备二进制包：[uint16 ID][uint16 len][body]
+     out << id << len;
+     block.append(dataBytes);
+     _socket.write(block);
+     ```
+
+------
+
+### 二、接收流程：从底层 TCP 数据到界面切换
+
+1. **数据到达，`readyRead` 信号触发**
+
+   - `TcpMgr` 构造函数中：
+
+     ```cpp
+     connect(&_socket, &QTcpSocket::readyRead, [&](){
+         _buffer.append(_socket.readAll());
+         QDataStream stream(&_buffer, QIODevice::ReadOnly);
+         stream.setVersion(QDataStream::Qt_5_0);
+         forever {
+             if (!_b_recv_pending) {
+                 if (_buffer.size() < sizeof(quint16)*2) return;
+                 stream >> _message_id >> _message_len;
+                 _buffer = _buffer.mid(sizeof(quint16)*2);
+             }
+             if (_buffer.size() < _message_len) {
+                 _b_recv_pending = true; return;
+             }
+             _b_recv_pending = false;
+             QByteArray messageBody = _buffer.left(_message_len);
+             _buffer = _buffer.mid(_message_len);
+             handleMsg(ReqId(_message_id), _message_len, messageBody);
+         }
+     });
+     ```
+
+2. **派发到具体业务处理**
+
+   - `handleMsg(ReqId id, int len, QByteArray data)`：
+
+     ```cpp
+     auto it = _handlers.find(id);
+     if (it != _handlers.end()) {
+         it->second(id, len, data);
+     }
+     ```
+
+   - 在 `TcpMgr::initHandlers()` 中，为 `ID_CHAT_LOGIN_RSP` 注册了处理器：
+
+     ```cpp
+     _handlers.insert(ID_CHAT_LOGIN_RSP, [this](ReqId id, int len, QByteArray data){
+         QJsonDocument doc = QJsonDocument::fromJson(data);
+         QJsonObject obj = doc.object();
+         if (obj["error"].toInt() != ErrorCodes::SUCCESS) {
+             emit sig_login_failed(err);
+         } else {
+             UserMgr::GetInstance()->SetUid(obj["uid"].toInt());
+             UserMgr::GetInstance()->SetName(obj["name"].toString());
+             UserMgr::GetInstance()->SetToken(obj["token"].toString());
+             emit sig_switch_chatdlg();
+         }
+     });
+     ```
+
+   - `LoginDialog`（或其他 UI）连接了：
+
+     ```cpp
+     connect(TcpMgr::GetInstance().get(),
+             &TcpMgr::sig_login_failed,
+             this,
+             &LoginDialog::slot_login_failed);
+     connect(TcpMgr::GetInstance().get(),
+             &TcpMgr::sig_switch_chatdlg,
+             this,
+             /* 切换到聊天窗口的槽函数 */);
+     ```
+
+------
+
+通过以上步骤，就完整串联了从点击“登录”→HTTP 登录验证→发起 TCP 连接→发送聊天登录请求→接收聊天登录响应→切换聊天界面的全过程，每一步都通过 Qt 的信号/槽机制将异步事件传递下去。希望能帮助你理清整个 TCP 流程的调用与信号触发关系。
+
+
+
+![image-20250421224348641](D:/Code/TYPORA/Note/interview.assets/image-20250421224348641.png)
+
+![image-20250421225403697](D:/Code/TYPORA/Note/interview.assets/image-20250421225403697.png)
+
+
+
+
+
+![image-20250421224658599](D:/Code/TYPORA/Note/interview.assets/image-20250421224658599.png)
+
+
+
+![image-20250421224834007](D:/Code/TYPORA/Note/interview.assets/image-20250421224834007.png)
+
+
+
+![image-20250421225021170](D:/Code/TYPORA/Note/interview.assets/image-20250421225021170.png)
+
+
+
+![image-20250421225202733](D:/Code/TYPORA/Note/interview.assets/image-20250421225202733.png)
+
+
+
 ## Linux
 
 ### 静态库和动态库
@@ -9243,12 +9827,7 @@ int main() {
 
 ### **六大组件**
 
-1. 容器
-2. 适配器
-3. 分配器
-4. 反函数
-5. 迭代器
-6. 算法
+容器,适配器,分配器,反函数,迭代器,算法
 
 ### **模板**
 
@@ -9827,16 +10406,14 @@ lst.sort();
 
 
 
-## 面试题
+### 面试题
 
-### **为什么 `std::deque<char>` 会比 `std::vector<char>` 大？**
+#### **为什么 `std::deque<char>` 会比 `std::vector<char>` 大？**
 
 - **`std::vector<char>` 只存储一个指针（指向连续内存）+ size + capacity**，通常 **占 24 字节（64 位系统）**。
 - **`std::deque<char>` 需要维护多块小缓冲区**，通常比 `std::vector` 额外多出 **指向指针数组的指针、索引变量等**，因此比 `std::vector` 稍大。
 
-### **template<>**
 
-![image-20250313101355345](D:/Code/TYPORA/Note/interview.assets/image-20250313101355345.png)
 
 
 
@@ -9848,11 +10425,11 @@ lst.sort();
 
 ## Http
 
-### **• HTTP请求和响应的结构是什么？**
+### **HTTP请求和响应的结构是什么？**
 
 • 请求报文：
 
- 		• 请求行：包含请求方法、URI和HTTP版本。
+​		 请求行：包含请求方法、URI和HTTP版本。
 
 ​		• 请求头：包含客户端信息、资源请求的附加信息等。
 
@@ -9913,13 +10490,203 @@ lst.sort();
 
 ​		客户端回复ACK确认，完成连接断开。
 
-![img](D:/Code/TYPORA/Note/interview.assets/cde5abc729f1b1682b138cd49dfa00a9.jpg) 　　　　![img](D:/Code/TYPORA/Note/interview.assets/1fea5a0ead5613eb59f91b3807b95561.jpg) 　　　
+![img](D:/Code/TYPORA/Note/interview.assets/cde5abc729f1b1682b138cd49dfa00a9.jpg) 　　　　
+
+![img](D:/Code/TYPORA/Note/interview.assets/1fea5a0ead5613eb59f91b3807b95561.jpg)
+
+
+
+ 　　　
+
+
 
 ### **等待的时间为什么是2MSL呢？**
 
 处于TIME_WAIT状态的主动断开方，在等待完成2MSL的时间后，才真正关闭连接通道，其等待的时间为什么是2MSL呢？ 2MSL翻译过来就是两倍的MSL。MSL全称为Maximum Segment Lifetime，指的是一个TCP报文片段在网络中最大的存活时间，具体来说，2MSL对应于一次消息的来回（一个发送和一个回复）所需的最大时间。如果直到2MSL，主动断开方都没有再一次收到对方的报文（如FIN报文)，则可以推断ACK已经被对方成功接收，此时，主动断开方将最终结束自己的TCP连接。所以，TCP的TIME_WAIT状态也称为2MSL等待状态。
 
+### **TCP 的拥塞控制机制**
+
+TCP 的拥塞控制机制主要包括以下四个核心部分：**慢启动（Slow Start）**、**拥塞避免（Congestion Avoidance）**、**快速重传（Fast Retransmit）** 和 **快速恢复（Fast Recovery）**。这些机制共同作用，确保 TCP 在网络拥塞时能够动态调整发送速率，从而提高网络的效率和稳定性。
+
+#### 1. **慢启动（Slow Start）**
+- **目的**：快速探测网络的容量，找到网络可以承受的最大发送速率。
+- **机制**：
+  - 初始时，发送方的拥塞窗口（Congestion Window, `cwnd`）设置为 1。
+  - 每成功收到一个 ACK（确认消息），`cwnd` 倍增（即指数增长）。
+  - 这种增长方式非常快，但会持续到以下两种情况之一发生：
+    1. `cwnd` 达到接收方的通告窗口（Receiver Window, `rwnd`）。
+    2. 发生网络拥塞（例如丢包）。
+- **特点**：
+  - 慢启动阶段的发送速率增长非常快，但容易导致网络拥塞。
+  - 一旦检测到丢包，慢启动阶段结束，进入拥塞避免阶段。
+
+#### 2. **拥塞避免（Congestion Avoidance）**
+- **目的**：在接近网络容量时，避免网络过载，保持稳定的发送速率。
+- **机制**：
+  - 当慢启动阶段结束或检测到网络拥塞后，`cwnd` 的增长方式从指数增长变为线性增长（每次增加 1）。
+  - 这种增长方式较为保守，但可以避免网络拥塞的进一步恶化。
+- **特点**：
+  - 拥塞避免阶段的发送速率增长较慢，但更稳定。
+  - 如果再次发生丢包，`cwnd` 会被减半（例如设置为 `cwnd = cwnd / 2`），然后重新进入慢启动或拥塞避免阶段。
+
+#### 3. **快速重传（Fast Retransmit）**
+- **目的**：快速检测丢包并重传丢失的数据包，减少等待时间。
+- **机制**：
+  - 如果发送方连续收到三个重复的 ACK（即接收方多次确认同一个数据包），则认为该数据包丢失。
+  - 立即重传丢失的数据包，而不需要等待重传计时器超时。
+- **特点**：
+  - 快速重传可以显著减少重传延迟，提高传输效率。
+  - 通常与快速恢复机制配合使用。
+
+#### 4. **快速恢复（Fast Recovery）**
+- **目的**：在快速重传后，快速恢复发送速率，避免性能下降。
+- **机制**：
+  - 当发送方通过快速重传重传丢失的数据包后，`cwnd` 不会被重置为 1，而是设置为 `cwnd = ssthresh`（慢启动阈值）。
+  - 然后进入拥塞避免阶段，继续线性增长。
+- **特点**：
+  - 快速恢复避免了因重传而导致的发送速率大幅下降。
+  - 与快速重传结合，可以有效应对单个丢包的情况。
+
+#### 总结
+TCP 的拥塞控制机制包括：
+1. **慢启动**：快速探测网络容量，指数增长。
+2. **拥塞避免**：接近容量时，线性增长，避免过载。
+3. **快速重传**：快速检测丢包并重传。
+4. **快速恢复**：重传后快速恢复发送速率。
+
+
+
 ## 数据结构
+
+#### 哈希表
+
+下面给出一个较为全面和详细的解释，从基础概念到具体实现细节，涵盖哈希表、哈希函数、构造哈希函数的方法、哈希冲突的定义以及解决哈希冲突的方法。
+
+------
+
+##### 什么是哈希表
+
+**哈希表（Hash Table）**是一种基于数组的数据结构，用于实现键（key）和值（value）的映射关系。它通过使用哈希函数将键转换为数组中的索引，从而在常数时间内进行查找、插入和删除操作（平均时间复杂度为 O(1)）。
+
+- **用途：** 广泛应用于需要快速查找、插入、删除等操作的场景，例如数据库索引、缓存、编译器符号表等。
+- **特点：** 相比于其他线性数据结构，哈希表在处理大量数据时具有更高的效率，但它的效率很大程度上取决于哈希函数的好坏以及哈希冲突的处理方法。
+
+------
+
+##### 什么是哈希函数
+
+**哈希函数（Hash Function）**是一个将任意大小的数据（通常称为“键”）映射到固定大小的整数（通常为数组的索引）的函数。
+
+- **作用：**
+  - 根据输入键生成一个数值，该数值用于定位哈希表中存储数据的位置。
+  - 一个好的哈希函数能够使得不同的键尽量均匀地分布在哈希表中，从而降低冲突几率。
+- **要求：**
+  1. **确定性：** 同一输入必须始终产生相同的输出。
+  2. **快速计算：** 哈希函数应该能在很短的时间内完成计算。
+  3. **均匀分布：** 不同的输入尽可能均匀地映射到各个桶（或槽位）中。
+  4. **抗冲突性：** 理想情况下，减少或避免不同输入映射到同一输出（即冲突）。
+
+------
+
+##### 怎么构造哈希函数
+
+构造一个好的哈希函数需要考虑以下几点：
+
+######  基本方法
+
+- **取余法（Modular Method）：**
+   常见的构造方式是对键的某个数值形式取余数。例如，若哈希表大小为 M，则可用公式
+
+  ```
+  hash(key) = f(key) mod M
+  ```
+
+  其中 f(key) 可以是将键转换为整数的过程。例如，对于整型键，可以直接使用键本身；对于字符串，可以使用字符的 ASCII 值或其他编码方式组合计算。（注意选择 M 时通常选用质数以获得更好的分布效果）
+
+- **乘法法（Multiplicative Method）：**
+   这个方法将键乘以一个常数 A（通常是 0 与 1 之间的实数），取小数部分后乘以哈希表的大小 M，公式为：
+
+  ```
+  hash(key) = floor(M * (key * A mod 1))
+  ```
+
+  这种方法能得到较好的均匀分布，不太依赖于 M 的具体选值。
+
+- **折叠法（Folding Method）：**
+   将较长的键分割成多个部分（例如，对于长数字或字符串），然后将这些部分进行组合（例如相加或异或），再进行取余运算得到最终的索引。
+
+######  设计注意事项
+
+- **冲突控制：** 任何有限长度的输出都无法完美映射无限大的输入空间，因而必然会出现冲突。哈希函数设计需要在均匀性和算法效率上做平衡。
+- **安全性：** 在某些安全相关的场景中（如密码存储），需要使用防碰撞哈希算法，且可能需采用加盐（salt）的策略。
+
+##### 什么叫哈希冲突
+
+**哈希冲突（Hash Collision）**是指两个或多个不同的键经过哈希函数计算后，得到了相同的哈希值，从而映射到了哈希表中的同一个槽（bucket 或 slot）。
+
+- **产生原因：**
+  - 输入数据的无限性与输出范围的有限性决定了冲突不可避免。
+  - 哈希函数设计不合理，不能充分随机或均匀分布键值。
+- **影响：**
+  - 冲突会影响哈希表的查找效率，如果没有合理的冲突处理机制，可能会退化为线性查找。
+
+#####  怎么解决哈希冲突
+
+###### 开放定址法（Open Addressing）
+
+所有元素都存放在哈希表的数组中，当发生冲突时，通过某种探查（probing）策略在数组中寻找下一个空槽。主要方法包括：
+
+- **线性探查（Linear Probing）：**
+   如果某个槽已被占用，则检查下一个槽（即索引依次递增），直至找到空槽。
+   *缺点：* 会产生“聚集效应”，即连续冲突会堆积成一片，影响查找效率。
+
+- **二次探查（Quadratic Probing）：**
+   探查序列依据二次函数方式计算，例如：
+
+  ```
+  hash_i = (hash(key) + c1*i + c2*i*i) mod M
+  ```
+
+  这种方式能缓解线性探查的聚集效应，但同样可能出现问题（例如无法覆盖所有槽）。
+
+- **双重散列（Double Hashing）：**
+   使用第二个哈希函数来决定步长，公式为：
+
+  ```
+  hash_i = (hash1(key) + i * hash2(key)) mod M
+  ```
+
+  这种方法在理论上能更均匀地分布探查序列，碰撞几率低且效率较高。
+
+###### 链地址法（Separate Chaining）
+
+每个哈希表的槽中存储一个链表（或其他容器如平衡树、动态数组），所有映射到同一槽的元素都存储在这个链表中。
+
+- **优点：**
+  - 实现简单，且当冲突较多时，只需处理链表而不必扩展整个哈希表的数组。
+  - 在负载因子较高时（例如超过 1），依然能正常工作，只是查找时间可能变为 O(n)（在极端情况下）。
+- **缺点：**
+  - 需要额外的空间来存储链表节点。
+  - 链表的遍历速度较直接寻址法低，在冲突严重时可能会降低性能。
+
+###### 再哈希（Rehashing）
+
+当哈希表的负载因子（已使用槽位与总槽位的比例）达到一定阈值时，动态扩展哈希表的容量，并根据新的表大小重新计算所有键的哈希值。
+
+- **好处：**
+  - 降低负载因子，使得哈希表能够更加均匀地分布元素，减少冲突。
+- **注意：**
+  - 再哈希操作往往需要较高的时间开销，但这种成本通常在扩展容量时摊销开来。
+
+
+
+- **哈希表** 是一种利用哈希函数实现键值映射的数据结构，能在平均 O(1) 时间内完成插入、查找和删除操作。
+- **哈希函数** 将输入数据映射到固定长度的整数，设计一个好的哈希函数需要考虑确定性、快速性、均匀分布和抗冲突性。
+- **构造哈希函数** 常见方法包括取余法、乘法法和折叠法，对不同数据类型可以采用不同的策略。
+- **哈希冲突** 是指不同的输入映射到了同一个槽，它是不可避免的。
+- **解决哈希冲突** 的方法有开放定址法（如线性探查、二次探查、双重散列）、链地址法以及通过再哈希技术动态调整哈希表大小
+
+
 
 #### 排序怎么区分稳定和不稳定？
 
@@ -9964,6 +10731,32 @@ void bubbleSort(vector<int> &arr) {
             break;
         }
     }    
+}
+```
+
+#### 选择排序
+
+O(n^2)
+
+```cpp
+void selectSort(std::vector<int> &arr)
+{
+    int size = arr.size();
+    for (int i = 0; i < size - 1; i++)
+    {
+        int minPos = i; // 正确：从 i 开始寻找最小值
+        for (int j = i + 1; j < size; j++)
+        {
+            if (arr[j] < arr[minPos])
+            {
+                minPos = j;
+            }
+        }
+        if (minPos != i)
+        {
+            swap(&arr[minPos], &arr[i]);
+        }
+    }
 }
 ```
 
